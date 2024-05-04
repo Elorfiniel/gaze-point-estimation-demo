@@ -1,0 +1,2 @@
+# ignore checkpoint (for the protection of the training data)
+estimator/checkpoint/model.onnx
