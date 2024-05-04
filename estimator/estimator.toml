@@ -1,0 +1,15 @@
+# Configuration for PoG Estimator
+
+# Checkpoint path (absolute or relative to the directory of this config)
+checkpoint = 'checkpoint/model.onnx'
+
+# Resize image crops for estimator, use default: 224x224
+face_resize = [224, 224]
+eyes_resize = [224, 224]
+
+# Laptop specific parameters, example (lenovo yoga c740)
+#   1. Offset of screen topleft corner in camera coordinate system
+#   2. Screen size (height, weight) in pixels and centimeters
+topleft_offset = [-15.5, -0.5]
+screen_size_px = [1080, 1920]
+screen_size_cm = [17.4, 31.0]
