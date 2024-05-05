@@ -1,5 +1,14 @@
-import os, logging
+import logging
+import os
 import toml
+
+
+def configure_logging(level=logging.INFO, force=False):
+  logging.basicConfig(
+    level=level, force=force,
+    format='[ %(asctime)s ] process %(process)d - %(levelname)s: %(message)s',
+    datefmt='%m-%d %H:%M:%S',
+  )
 
 
 def load_toml_secure(toml_path):
