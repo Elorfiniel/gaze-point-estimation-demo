@@ -8,8 +8,22 @@ face_resize = [224, 224]
 eyes_resize = [224, 224]
 
 # Laptop specific parameters, example (lenovo yoga c740)
-#   1. Offset of screen topleft corner in camera coordinate system
-#   2. Screen size (height, weight) in pixels and centimeters
+#   1. ID of the camera used to capture frames
+#   2. Offset of screen topleft corner in camera coordinate system
+#   3. Screen size (height, weight) in pixels and centimeters
+camera_id = 0
 topleft_offset = [-15.5, -0.5]
 screen_size_px = [1080, 1920]
 screen_size_cm = [17.4, 31.0]
+
+# Display the captured frame inside a preview window
+#   1. Preview mode: none, full, frame
+#   2. Name of the preview window
+#   3. Items to display in 'full' or 'frame preview mode
+pv_mode = 'full'
+pv_window = 'preview'
+pv_items = ['frame', 'gaze', 'time', 'warn']
+
+# Configuration for One-Euro filters
+gx_filt_params = { beta = 0.01, min_cutoff = 0.1, d_cutoff = 1.2, clock = true }
+gy_filt_params = { beta = 0.01, min_cutoff = 0.1, d_cutoff = 1.2, clock = true }

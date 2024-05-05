@@ -1,7 +1,8 @@
 from runtime.facealign import FaceAlignment
-from runtime.miscellaneous import load_toml_secure
+from runtime.miscellaneous import *
 from runtime.one_euro import OneEuroFilter
-from runtime.pipeline import load_model, prepare_model_input, do_model_inference
+from runtime.pipeline import *
+from runtime.preview import *
 
 from argparse import ArgumentParser, Namespace
 from datetime import datetime
@@ -35,19 +36,27 @@ def gaze_vec_to_screen_xy(gaze_vector, screen_topleft_off_cm,
 
   return None
 
-def run_camera(model,
-               topleft_offset, screen_size_px, screen_size_cm,
-               face_resize=(224, 224), eyes_resize=(224, 224),
-               capturing_device_id = 0, cv2_window_name = 'Preview'):
-  # Generate blank background for preview
-  background = np.zeros(shape=screen_size_px + [3], dtype=np.uint8)
 
-  capture = cv2.VideoCapture(capturing_device_id)
-  cv2.namedWindow(cv2_window_name, cv2.WND_PROP_FULLSCREEN)
-  cv2.setWindowProperty(cv2_window_name, cv2.WND_PROP_FULLSCREEN, cv2.WINDOW_FULLSCREEN)
+def run_model_on_camera(model, camera_id,
+                        topleft_offset, screen_size_px, screen_size_cm,
+                        face_resize=(224, 224), eyes_resize=(224, 224),
+                        pv_mode='none', pv_window='preview',
+                        pv_items=['frame', 'gaze', 'time', 'warn'],
+                        gx_filt_params=dict(), gy_filt_params=dict()):
+  # Create a video capture for the specified camera id
+  capture = cv2.VideoCapture(camera_id)
 
-  gx_filter = OneEuroFilter(beta=0.01, min_cutoff=0.1, d_cutoff=1.2, clock=True)
-  gy_filter = OneEuroFilter(beta=0.01, min_cutoff=0.1, d_cutoff=1.2, clock=True)
+  # Prepare blank background for preview
+  background = None
+  if pv_mode == 'full':
+    background = np.zeros(shape=screen_size_px + [3], dtype=np.uint8)
+    cv2.namedWindow(pv_window, cv2.WND_PROP_FULLSCREEN)
+    cv2.setWindowProperty(pv_window, cv2.WND_PROP_FULLSCREEN, cv2.WINDOW_FULLSCREEN)
+  if pv_mode == 'frame':
+    cv2.namedWindow(pv_window, cv2.WND_PROP_AUTOSIZE)
+
+  gx_filter = OneEuroFilter(**gx_filt_params)
+  gy_filter = OneEuroFilter(**gy_filt_params)
 
   with FaceAlignment(static_image_mode=False,
                      min_detection_confidence=0.80) as alignment:
@@ -55,13 +64,10 @@ def run_camera(model,
       success, image = capture.read()
       if not success: continue
 
-      canvas = background.copy()  # Make a copy for drawing
-      ph, pw, _ = image.shape
-      tw = 320; th = int(tw * ph / pw)
-      canvas[:th, :tw] = cv2.resize(image, (tw, th), interpolation=cv2.INTER_CUBIC)
-
       rgb_image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
       landmarks, theta = alignment.process(rgb_image)
+
+      canvas = create_pv_canvas(image, background, pv_mode, pv_items)
 
       if len(landmarks) > 0:
         # Get face and eye region crops, prepare model inputs
@@ -91,23 +97,20 @@ def run_camera(model,
           gx = clamp_with_converter(gx, 0, screen_size_px[1], converter=int)
           gy = clamp_with_converter(gy, 0, screen_size_px[0], converter=int)
 
-          cv2.circle(canvas, (gx, gy), radius=56,
-                     color=(0, 0, 255), thickness=4, lineType=cv2.LINE_AA)
-
-        cv2.putText(canvas, f'Inference Time: {inference_time:.2f}s, FPS: {1.0 / inference_time:.2f}',
-                    (50, screen_size_px[0] - 50), cv2.FONT_HERSHEY_PLAIN, 1.6,
-                    color=(0, 0, 255), thickness=2, lineType=cv2.LINE_AA)
+        if gaze_screen_xy is not None:
+          display_gaze_on_canvas(canvas, gx, gy, pv_mode, pv_items)
+        display_time_on_canvas(canvas, inference_time, pv_mode, pv_items)
 
       else:
-        cv2.putText(canvas, f'No face detected in the frame, anything wrong with the camera?',
-                    (50, screen_size_px[0] - 50), cv2.FONT_HERSHEY_PLAIN, 1.6,
-                    color=(0, 0, 255), thickness=2, lineType=cv2.LINE_AA)
+        display_warning_on_canvas(canvas, pv_mode, pv_items)
 
-      cv2.imshow(cv2_window_name, canvas)
-      if cv2.waitKey(6) & 0xFF == ord('X'): break
+      if display_canvas(pv_window, canvas, pv_mode, pv_items): break
+
+  # Destroy named windows used for preview
+  if pv_mode != 'none':
+    cv2.destroyAllWindows()
 
   capture.release()
-  cv2.destroyAllWindows()
 
 
 def main_procedure(cmdargs: Namespace):
@@ -116,7 +119,7 @@ def main_procedure(cmdargs: Namespace):
   # Load estimator checkpoint from file system
   model = load_model(cmdargs.config, config.pop('checkpoint'))
   # Run inference with camera input stream
-  run_camera(model, **config)
+  run_model_on_camera(model=model, **config)
 
   print(f'finish execution at {datetime.now().strftime("%Y/%b/%d %H:%M")}')
 
