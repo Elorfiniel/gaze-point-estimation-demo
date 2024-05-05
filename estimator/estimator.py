@@ -36,6 +36,35 @@ def gaze_vec_to_screen_xy(gaze_vector, screen_topleft_off_cm,
 
   return None
 
+def predict_screen_xy(model, crops, norm_ldmks, face_resize, eyes_resize,
+                      theta, topleft_offset, screen_size_px, screen_size_cm,
+                      gx_filter, gy_filter):
+  # Prepare model input according to model type
+  face_crop, reye_crop, leye_crop = crops
+  reye_center, leye_center = norm_ldmks[468], norm_ldmks[473]
+  eye_ldmks = np.concatenate([reye_center, leye_center])
+
+  model_input = prepare_model_input(face_crop, reye_crop, leye_crop, eye_ldmks,
+                                    face_resize, eyes_resize)
+
+  # Inference according to model type
+  inference_start = time.time()
+  gaze_vec = do_model_inference(model, model_input, theta)
+  inference_finish = time.time()
+  inference_time = inference_finish - inference_start
+
+  # Display predicted gaze point on the screen
+  gaze_screen_xy = gaze_vec_to_screen_xy(gaze_vec, topleft_offset,
+                                          screen_size_px, screen_size_cm)
+  if gaze_screen_xy is not None:
+    gx = gx_filter.filter(gaze_screen_xy[0])
+    gy = gy_filter.filter(gaze_screen_xy[1])
+    gx = clamp_with_converter(gx, 0, screen_size_px[1], converter=int)
+    gy = clamp_with_converter(gy, 0, screen_size_px[0], converter=int)
+    gaze_screen_xy = (gx, gy)
+
+  return gaze_screen_xy, inference_time
+
 
 def run_model_on_camera(model, camera_id,
                         topleft_offset, screen_size_px, screen_size_cm,
@@ -55,6 +84,7 @@ def run_model_on_camera(model, camera_id,
   if pv_mode == 'frame':
     cv2.namedWindow(pv_window, cv2.WND_PROP_AUTOSIZE)
 
+  # Initialize location filters for the predicted point of gaze
   gx_filter = OneEuroFilter(**gx_filt_params)
   gy_filter = OneEuroFilter(**gy_filt_params)
 
@@ -70,35 +100,19 @@ def run_model_on_camera(model, camera_id,
       canvas = create_pv_canvas(image, background, pv_mode, pv_items)
 
       if len(landmarks) > 0:
-        # Get face and eye region crops, prepare model inputs
+        # Get face crop, eye crops and face landmarks
         hw_ratio = eyes_resize[1] / eyes_resize[0]
         crops, norm_ldmks, new_ldmks = alignment.get_face_crop(
           rgb_image, landmarks, theta, hw_ratio=hw_ratio)
-        # Prepare model input according to model type
-        face_crop, reye_crop, leye_crop = crops
-        reye_center, leye_center = norm_ldmks[468], norm_ldmks[473]
-        eye_ldmks = np.concatenate([reye_center, leye_center])
-
-        model_input = prepare_model_input(face_crop, reye_crop, leye_crop, eye_ldmks,
-                                          face_resize, eyes_resize)
-
-        # Inference according to model type
-        inference_start = time.time()
-        gaze_vec = do_model_inference(model, model_input, theta)
-        inference_finish = time.time()
-        inference_time = inference_finish - inference_start
-
-        # Display predicted gaze point on the screen
-        gaze_screen_xy = gaze_vec_to_screen_xy(gaze_vec, topleft_offset,
-                                               screen_size_px, screen_size_cm)
-        if gaze_screen_xy is not None:
-          gx = gx_filter.filter(gaze_screen_xy[0])
-          gy = gy_filter.filter(gaze_screen_xy[1])
-          gx = clamp_with_converter(gx, 0, screen_size_px[1], converter=int)
-          gy = clamp_with_converter(gy, 0, screen_size_px[0], converter=int)
+        # Inference: predict PoG on the screen
+        gaze_screen_xy, inference_time = predict_screen_xy(
+          model, crops, norm_ldmks, face_resize, eyes_resize,
+          theta, topleft_offset, screen_size_px, screen_size_cm,
+          gx_filter, gy_filter,
+        )
 
         if gaze_screen_xy is not None:
-          display_gaze_on_canvas(canvas, gx, gy, pv_mode, pv_items)
+          display_gaze_on_canvas(canvas, gaze_screen_xy, pv_mode, pv_items)
         display_time_on_canvas(canvas, inference_time, pv_mode, pv_items)
 
       else:

@@ -25,8 +25,10 @@ def _display_text_on_canvas(canvas, text, location):
     color=(0, 0, 255), thickness=2, lineType=cv2.LINE_AA,
   )
 
-def display_gaze_on_canvas(canvas, gx, gy, pv_mode, pv_items):
+def display_gaze_on_canvas(canvas, gaze_screen_xy, pv_mode, pv_items):
   if pv_mode == 'none': return False
+
+  gx, gy = gaze_screen_xy
 
   if pv_mode == 'full' and 'gaze' in pv_items:
     cv2.circle(canvas, (gx, gy), radius=56, color=(0, 0, 255), thickness=4, lineType=cv2.LINE_AA)
