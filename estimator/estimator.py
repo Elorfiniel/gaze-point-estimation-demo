@@ -101,10 +101,9 @@ def run_server(mp_context, mp_context_lock, host='localhost', port=4200):
     async for message in websocket:
       request = json.loads(message)
 
-      if request['action'] == 'gaze':
+      if request['type'] == 'gaze':
         with mp_context_lock:
-          screen_xy = [mp_context.gx, mp_context.gy]
-          response = json.dumps(screen_xy)
+          response = json.dumps(dict(type='gaze', gaze=[mp_context.gx, mp_context.gy]))
         await websocket.send(response)
 
   # Start response loop: the websocket server
