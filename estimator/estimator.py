@@ -8,21 +8,27 @@ from runtime.inference import predict_screen_xy
 from argparse import ArgumentParser, Namespace
 
 import asyncio
-import cv2, json
+import functools
+import cv2
+import json
 import multiprocessing
 import numpy as np
 import websockets
 
 
-def run_model_on_camera(mp_context, mp_context_lock,
-                        model, camera_id,
-                        topleft_offset, screen_size_px, screen_size_cm,
-                        face_resize=(224, 224), eyes_resize=(224, 224),
-                        pv_mode='none', pv_window='preview',
-                        pv_items=['frame', 'gaze', 'time', 'warn'],
-                        gx_filt_params=dict(), gy_filt_params=dict()):
+def camera_handler(open_event, kill_event, value_gaze, value_lock,
+                   model, camera_id,
+                   topleft_offset, screen_size_px, screen_size_cm,
+                   capture_resolution, target_resolution,
+                   face_resize=(224, 224), eyes_resize=(224, 224),
+                   pv_mode='none', pv_window='preview',
+                   pv_items=['frame', 'gaze', 'time', 'warn'],
+                   gx_filt_params=dict(), gy_filt_params=dict()):
+
   # Create a video capture for the specified camera id
   capture = cv2.VideoCapture(camera_id)
+  capture.set(cv2.CAP_PROP_FRAME_HEIGHT, capture_resolution[0])
+  capture.set(cv2.CAP_PROP_FRAME_WIDTH, capture_resolution[1])
 
   # Prepare blank background for preview
   background = None
@@ -37,114 +43,140 @@ def run_model_on_camera(mp_context, mp_context_lock,
   gx_filter = OneEuroFilter(**gx_filt_params)
   gy_filter = OneEuroFilter(**gy_filt_params)
 
-  with FaceAlignment(static_image_mode=False,
-                     min_detection_confidence=0.80) as alignment:
-    while capture.isOpened():
-      success, image = capture.read()
-      if not success: continue
+  # Initialize mediapipe pipeline for face mesh detection
+  alignment = FaceAlignment(static_image_mode=False, min_detection_confidence=0.80)
 
-      rgb_image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
-      landmarks, theta = alignment.process(rgb_image)
+  # [Warn] Normally, the camera will be opened correctly, check this on failure
+  logging.info(f'camera id {camera_id}, camera is opened {capture.isOpened()}')
 
-      canvas = create_pv_canvas(image, background, pv_mode, pv_items)
+  # Notify the parent process (websocket server, blocking)
+  open_event.set()
 
-      if len(landmarks) > 0:
-        # Get face crop, eye crops and face landmarks
-        hw_ratio = eyes_resize[1] / eyes_resize[0]
-        crops, norm_ldmks, new_ldmks = alignment.get_face_crop(
-          rgb_image, landmarks, theta, hw_ratio=hw_ratio)
-        # Inference: predict PoG on the screen
-        gaze_screen_xy, inference_time = predict_screen_xy(
-          model, crops, norm_ldmks, face_resize, eyes_resize,
-          theta, topleft_offset, screen_size_px, screen_size_cm,
-          gx_filter, gy_filter,
-        )
-        # Save the latest PoG inside the shared array
-        if gaze_screen_xy is not None:
-          with mp_context_lock:
-            mp_context.gx, mp_context.gy = gaze_screen_xy
+  while not kill_event.is_set():
+    success, source_image = capture.read()
+    if not success: continue
 
-        # Display extra information on the preview
-        if gaze_screen_xy is not None:
-          display_gaze_on_canvas(canvas, gaze_screen_xy, pv_mode, pv_items)
-        display_time_on_canvas(canvas, inference_time, pv_mode, pv_items)
+    image = shrink_frame(source_image, capture_resolution, target_resolution)
+    rgb_image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+    landmarks, theta = alignment.process(rgb_image)
 
-      else:
-        display_warning_on_canvas(canvas, pv_mode, pv_items)
+    canvas = create_pv_canvas(image, background, pv_mode, pv_items)
 
-      if display_canvas(pv_window, canvas, pv_mode, pv_items): break
+    if len(landmarks) > 0:
+      # Get face crop, eye crops and face landmarks
+      hw_ratio = eyes_resize[1] / eyes_resize[0]
+      crops, norm_ldmks, new_ldmks = alignment.get_face_crop(
+        rgb_image, landmarks, theta, hw_ratio=hw_ratio)
+      # Inference: predict PoG on the screen
+      gaze_screen_xy, inference_time = predict_screen_xy(
+        model, crops, norm_ldmks, face_resize, eyes_resize,
+        theta, topleft_offset, screen_size_px, screen_size_cm,
+        gx_filter, gy_filter,
+      )
+      # Save the latest PoG inside the shared array
+      if gaze_screen_xy is not None:
+        with value_lock:
+          value_gaze[0] = gaze_screen_xy[0]
+          value_gaze[1] = gaze_screen_xy[1]
+
+      # Display extra information on the preview
+      if gaze_screen_xy is not None:
+        display_gaze_on_canvas(canvas, gaze_screen_xy, pv_mode, pv_items)
+      display_time_on_canvas(canvas, inference_time, pv_mode, pv_items)
+
+    else:
+      display_warning_on_canvas(canvas, pv_mode, pv_items)
+
+    if display_canvas(pv_window, canvas, pv_mode, pv_items): break
 
   # Destroy named windows used for preview
   if pv_mode != 'none':
     cv2.destroyAllWindows()
 
+  alignment.close()
   capture.release()
 
-def run_estimator(mp_context, mp_context_lock, config_path):
-  '''Generate predicted point of gaze on the screen.
-  '''
+
+def camera_process(config_path, open_event, kill_event, value_gaze, value_lock):
+  '''Load model using configuration, start the camera handler.'''
+
+  logging.info('gaze point estimator will start in a few seconds')
 
   # Load configuration for the PoG estimator
   config = load_toml_secure(config_path)
   # Load estimator checkpoint from file system
   model = load_model(config_path, config.pop('checkpoint'))
+  # Handle control to camera handler
+  camera_handler(open_event, kill_event, value_gaze, value_lock, model, **config)
 
-  run_model_on_camera(mp_context, mp_context_lock, model, **config)
+  logging.info('gaze point estimator has been safely closed, now terminating')
 
 
-def run_server(mp_context, mp_context_lock, host='localhost', port=4200):
-  '''Make response to the client according to the transmission API.
-  '''
 
-  # Make response: handle requests from the client
-  async def make_response(websocket):
-    async for message in websocket:
-      request = json.loads(message)
+async def server_process(websocket, config_path):
+  logging.info('websocket server started, listening for requests')
+  logging.info(f'loading estimator configuration from {config_path}')
 
-      if request['type'] == 'gaze':
-        with mp_context_lock:
-          response = json.dumps(dict(type='gaze', gaze=[mp_context.gx, mp_context.gy]))
-        await websocket.send(response)
+  camera_status = {}
 
-  # Start response loop: the websocket server
-  async def websocket_server():
-    async with websockets.serve(make_response, host, port):
-      await asyncio.Future()  # Run forever
+  # Send "server-on" to notify the client
+  await websocket_send_json(websocket, { 'status': 'server-on' })
 
-  # Start the websocket server
-  asyncio.run(websocket_server())
+  async for message in websocket:
+    logging.debug(f'websocket server received message - {message}')
+
+    message_obj = json.loads(message)
+
+    # On receving "open-cam", start the camera process
+    if message_obj['opcode'] == 'open-cam':
+      camera_status['camera-open'] = multiprocessing.Event()
+      camera_status['camera-kill'] = multiprocessing.Event()
+      camera_status['value-gaze'] = multiprocessing.Array('d', (0.0, 0.0))
+      camera_status['value-lock'] = multiprocessing.Lock()
+
+      camera_status['camera-proc'] = multiprocessing.Process(
+        target=camera_process, args=(
+          config_path,
+          camera_status['camera-open'],
+          camera_status['camera-kill'],
+          camera_status['value-gaze'],
+          camera_status['value-lock'],
+        ),
+      )
+
+      camera_status['camera-proc'].start()
+      camera_status['camera-open'].wait()
+
+      # Send "camera-on" to notify the client
+      await websocket_send_json(websocket, { 'status': 'camera-on' })
+
+    # On receiving "kill-cam", terminate the camera process
+    if message_obj['opcode'] == 'kill-cam':
+      camera_status['camera-kill'].set()
+      camera_status['camera-proc'].join()
+      camera_status.clear()
+
+      # send "camera-off" to notify the client
+      await websocket_send_json(websocket, { 'status': 'camera-off' })
+
+async def websocket_server(ws_handler, host, port):
+  '''A general-purpose websocket server that runs forever.'''
+
+  async with websockets.serve(ws_handler, host, port):
+    await asyncio.Future()  # Run forever
+
 
 
 def main_procedure(cmdargs: Namespace):
-  '''Start a camera process and a server process, run until interrupted.
-  '''
+  '''Start a camera process and a server process, run until interrupted.'''
 
   configure_logging(logging.DEBUG, force=True)
-  logging.info('starting a camera process and a server process ...')
+  logging.info('starting the websocket server to listen for client requests')
 
-  with multiprocessing.Manager() as manager:
-    mp_context = manager.Namespace()
-    mp_context_lock = manager.Lock()
+  ws_handler = functools.partial(server_process, config_path=cmdargs.config)
+  asyncio.run(websocket_server(ws_handler, cmdargs.host, cmdargs.port))
 
-    with mp_context_lock:
-      mp_context.gx, mp_context.gy = 0, 0
-
-    estimator = multiprocessing.Process(
-      target=run_estimator,
-      args=(mp_context, mp_context_lock, cmdargs.config),
-    )
-    estimator.start()
-
-    server = multiprocessing.Process(
-      target=run_server,
-      args=(mp_context, mp_context_lock, cmdargs.host, cmdargs.port),
-    )
-    server.start()
-
-    estimator.join()
-    server.join()
-
-  logging.info('finishing execution, now exiting ...')
+  logging.info('websocket finished execution, now exiting')
 
 
 

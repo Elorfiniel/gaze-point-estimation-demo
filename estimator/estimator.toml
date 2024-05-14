@@ -16,6 +16,10 @@ topleft_offset = [-15.5, -0.5]
 screen_size_px = [1080, 1920]
 screen_size_cm = [17.4, 31.0]
 
+# Set image resolution (height, weight) for camera capture and model input
+capture_resolution = [720, 1280]
+target_resolution = [480, 640]
+
 # Display the captured frame inside a preview window
 #   1. Preview mode: none, full, frame
 #   2. Name of the preview window
