@@ -13,10 +13,11 @@ import cv2
 import json
 import multiprocessing
 import numpy as np
+import time
 import websockets
 
 
-def camera_handler(open_event, kill_event, value_gaze, value_lock,
+def camera_handler(open_event, kill_event, value_bank, value_lock, gaze_ready,
                    model, camera_id,
                    topleft_offset, screen_size_px, screen_size_cm,
                    capture_resolution, target_resolution,
@@ -76,8 +77,10 @@ def camera_handler(open_event, kill_event, value_gaze, value_lock,
       # Save the latest PoG inside the shared array
       if gaze_screen_xy is not None:
         with value_lock:
-          value_gaze[0] = gaze_screen_xy[0]
-          value_gaze[1] = gaze_screen_xy[1]
+          value_bank[0] = gaze_screen_xy[0] # Gaze: x
+          value_bank[1] = gaze_screen_xy[1] # Gaze: y
+          value_bank[2] = time.time() # Timestamp
+        gaze_ready.set()
 
       # Display extra information on the preview
       if gaze_screen_xy is not None:
@@ -97,7 +100,7 @@ def camera_handler(open_event, kill_event, value_gaze, value_lock,
   capture.release()
 
 
-def camera_process(config_path, open_event, kill_event, value_gaze, value_lock):
+def camera_process(config_path, open_event, kill_event, value_gaze, value_lock, gaze_ready):
   '''Load model using configuration, start the camera handler.'''
 
   logging.info('gaze point estimator will start in a few seconds')
@@ -107,11 +110,62 @@ def camera_process(config_path, open_event, kill_event, value_gaze, value_lock):
   # Load estimator checkpoint from file system
   model = load_model(config_path, config.pop('checkpoint'))
   # Handle control to camera handler
-  camera_handler(open_event, kill_event, value_gaze, value_lock, model, **config)
+  camera_handler(open_event, kill_event, value_gaze, value_lock, gaze_ready, model, **config)
 
   logging.info('gaze point estimator has been safely closed, now terminating')
 
 
+
+async def handle_message(message, websocket, camera_status, config_path):
+  logging.debug(f'websocket server received message - {message}')
+
+  message_obj = json.loads(message)
+
+  # On receving "open-cam", start the camera process
+  if message_obj['opcode'] == 'open-cam':
+    camera_status['camera-open'] = multiprocessing.Event()
+    camera_status['camera-kill'] = multiprocessing.Event()
+    camera_status['gaze-ready'] = multiprocessing.Event()
+    camera_status['value-bank'] = multiprocessing.Array('d', (0.0, 0.0, 0.0))
+    camera_status['value-lock'] = multiprocessing.Lock()
+
+    camera_status['camera-proc'] = multiprocessing.Process(
+      target=camera_process, args=(
+        config_path,
+        camera_status['camera-open'],
+        camera_status['camera-kill'],
+        camera_status['value-bank'],
+        camera_status['value-lock'],
+        camera_status['gaze-ready'],
+      ),
+    )
+
+    camera_status['camera-proc'].start()
+    camera_status['camera-open'].wait()
+
+    # Send "camera-on" to notify the client
+    await websocket_send_json(websocket, { 'status': 'camera-on' })
+
+  # On receiving "kill-cam", terminate the camera process
+  if message_obj['opcode'] == 'kill-cam':
+    camera_status['camera-kill'].set()
+    camera_status['camera-proc'].join()
+    camera_status.clear()
+
+    # Send "camera-off" to notify the client
+    await websocket_send_json(websocket, { 'status': 'camera-off' })
+
+async def broadcast_gaze(websocket, camera_status):
+  if camera_status['gaze-ready'].is_set():
+    with camera_status['value-lock']:
+      gaze_x, gaze_y, tid = camera_status['value-bank'][:]
+    camera_status['gaze-ready'].clear()
+
+    # Send "gaze-ready" to notify the client
+    await websocket_send_json(websocket, {
+      'status': 'gaze-ready',
+      'gaze_x': gaze_x, 'gaze_y': gaze_y, 'tid': tid,
+    })
 
 async def server_process(websocket, config_path):
   logging.info('websocket server started, listening for requests')
@@ -122,42 +176,23 @@ async def server_process(websocket, config_path):
   # Send "server-on" to notify the client
   await websocket_send_json(websocket, { 'status': 'server-on' })
 
-  async for message in websocket:
-    logging.debug(f'websocket server received message - {message}')
+  while True:
+    try:  # Wait for the message until a timeout occurs
+      message = await asyncio.wait_for(websocket.recv(), timeout=0.02)
+    except websockets.ConnectionClosed:
+      break # Close server upon closed client
+    except asyncio.TimeoutError:
+      message = None
 
-    message_obj = json.loads(message)
+    if message is not None:
+      await handle_message(message, websocket, camera_status, config_path)
 
-    # On receving "open-cam", start the camera process
-    if message_obj['opcode'] == 'open-cam':
-      camera_status['camera-open'] = multiprocessing.Event()
-      camera_status['camera-kill'] = multiprocessing.Event()
-      camera_status['value-gaze'] = multiprocessing.Array('d', (0.0, 0.0))
-      camera_status['value-lock'] = multiprocessing.Lock()
+    if camera_status.get('camera-proc', None):
+      await broadcast_gaze(websocket, camera_status)
 
-      camera_status['camera-proc'] = multiprocessing.Process(
-        target=camera_process, args=(
-          config_path,
-          camera_status['camera-open'],
-          camera_status['camera-kill'],
-          camera_status['value-gaze'],
-          camera_status['value-lock'],
-        ),
-      )
+  logging.info('websocket server closed, waiting for next new request')
 
-      camera_status['camera-proc'].start()
-      camera_status['camera-open'].wait()
 
-      # Send "camera-on" to notify the client
-      await websocket_send_json(websocket, { 'status': 'camera-on' })
-
-    # On receiving "kill-cam", terminate the camera process
-    if message_obj['opcode'] == 'kill-cam':
-      camera_status['camera-kill'].set()
-      camera_status['camera-proc'].join()
-      camera_status.clear()
-
-      # send "camera-off" to notify the client
-      await websocket_send_json(websocket, { 'status': 'camera-off' })
 
 async def websocket_server(ws_handler, host, port):
   '''A general-purpose websocket server that runs forever.'''
@@ -170,7 +205,7 @@ async def websocket_server(ws_handler, host, port):
 def main_procedure(cmdargs: Namespace):
   '''Start a camera process and a server process, run until interrupted.'''
 
-  configure_logging(logging.DEBUG, force=True)
+  configure_logging(logging.INFO, force=True)
   logging.info('starting the websocket server to listen for client requests')
 
   ws_handler = functools.partial(server_process, config_path=cmdargs.config)
