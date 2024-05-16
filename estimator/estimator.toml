@@ -29,5 +29,5 @@ pv_window = 'preview'
 pv_items = ['frame', 'gaze', 'time', 'warn']
 
 # Configuration for One-Euro filters
-gx_filt_params = { beta = 0.01, min_cutoff = 0.1, d_cutoff = 1.2, clock = true }
-gy_filt_params = { beta = 0.01, min_cutoff = 0.1, d_cutoff = 1.2, clock = true }
+gx_filt_params = { beta = 0.01, min_cutoff = 0.02, d_cutoff = 1.2, clock = true }
+gy_filt_params = { beta = 0.01, min_cutoff = 0.02, d_cutoff = 1.2, clock = true }
