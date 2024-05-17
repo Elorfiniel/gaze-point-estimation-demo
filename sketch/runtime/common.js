@@ -13,7 +13,11 @@ class SimpleDict {
 
   pop(key) {
     const value = this.get(key)
-    delete this.dict[key]
+
+    if (value !== undefined) {
+      delete this.dict[key]
+    }
+
     return value
   }
 }
