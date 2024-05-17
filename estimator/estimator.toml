@@ -24,7 +24,7 @@ target_resolution = [480, 640]
 #   1. Preview mode: none, full, frame
 #   2. Name of the preview window
 #   3. Items to display in 'full' or 'frame preview mode
-pv_mode = 'full'
+pv_mode = 'none'
 pv_window = 'preview'
 pv_items = ['frame', 'gaze', 'time', 'warn']
 
