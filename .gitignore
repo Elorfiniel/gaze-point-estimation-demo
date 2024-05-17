@@ -12,3 +12,7 @@ sketch/client.js
 # ignore everything except assets README
 sketch/assets
 !sketch/assets/README.md
+
+# ignore backup files and temp files
+*.bck
+*.tmp
