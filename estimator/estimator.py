@@ -13,7 +13,6 @@ import cv2
 import json
 import multiprocessing
 import numpy as np
-import time
 import websockets
 
 
@@ -69,17 +68,17 @@ def camera_handler(open_event, kill_event, value_bank, value_lock, gaze_ready,
       crops, norm_ldmks, new_ldmks = alignment.get_face_crop(
         rgb_image, landmarks, theta, hw_ratio=hw_ratio)
       # Inference: predict PoG on the screen
-      gaze_screen_xy, inference_time = predict_screen_xy(
+      gaze_screen_xy, gaze_vec, inference_time = predict_screen_xy(
         model, crops, norm_ldmks, face_resize, eyes_resize,
         theta, topleft_offset, screen_size_px, screen_size_cm,
         gx_filter, gy_filter,
       )
+
       # Save the latest PoG inside the shared array
       if gaze_screen_xy is not None:
         with value_lock:
-          value_bank[0] = gaze_screen_xy[0] # Gaze: x
-          value_bank[1] = gaze_screen_xy[1] # Gaze: y
-          value_bank[2] = time.time() # Timestamp
+          value_bank[0] = gaze_vec[0] # Gaze: x
+          value_bank[1] = gaze_vec[1] # Gaze: y
         gaze_ready.set()
 
       # Display extra information on the preview
@@ -99,8 +98,7 @@ def camera_handler(open_event, kill_event, value_bank, value_lock, gaze_ready,
   alignment.close()
   capture.release()
 
-
-def camera_process(config_path, open_event, kill_event, value_gaze, value_lock, gaze_ready):
+def camera_process(config_path, open_event, kill_event, value_bank, value_lock, gaze_ready):
   '''Load model using configuration, start the camera handler.'''
 
   logging.info('gaze point estimator will start in a few seconds')
@@ -110,11 +108,25 @@ def camera_process(config_path, open_event, kill_event, value_gaze, value_lock, 
   # Load estimator checkpoint from file system
   model = load_model(config_path, config.pop('checkpoint'))
   # Handle control to camera handler
-  camera_handler(open_event, kill_event, value_gaze, value_lock, gaze_ready, model, **config)
+  camera_handler(
+    open_event, kill_event, value_bank, value_lock,
+    gaze_ready, model, **config,
+  )
 
   logging.info('gaze point estimator has been safely closed, now terminating')
 
 
+
+async def server_hello(websocket, config_path):
+  # Load actual screen height and width from the PoG estimator configuration
+  config = load_toml_secure(config_path)
+  # Send "server-on" to notify the client
+  await websocket_send_json(websocket, {
+    'status': 'server-on',
+    'topleftOffset': config['topleft_offset'],
+    'screenSizePx': config['screen_size_px'],
+    'screenSizeCm': config['screen_size_cm'],
+  })
 
 async def handle_message(message, websocket, camera_status, config_path):
   logging.debug(f'websocket server received message - {message}')
@@ -126,7 +138,7 @@ async def handle_message(message, websocket, camera_status, config_path):
     camera_status['camera-open'] = multiprocessing.Event()
     camera_status['camera-kill'] = multiprocessing.Event()
     camera_status['gaze-ready'] = multiprocessing.Event()
-    camera_status['value-bank'] = multiprocessing.Array('d', (0.0, 0.0, 0.0))
+    camera_status['value-bank'] = multiprocessing.Array('d', (0.0, 0.0))
     camera_status['value-lock'] = multiprocessing.Lock()
 
     camera_status['camera-proc'] = multiprocessing.Process(
@@ -158,27 +170,27 @@ async def handle_message(message, websocket, camera_status, config_path):
 async def broadcast_gaze(websocket, camera_status):
   if camera_status['gaze-ready'].is_set():
     with camera_status['value-lock']:
-      gaze_x, gaze_y, tid = camera_status['value-bank'][:]
+      gaze_x, gaze_y = camera_status['value-bank'][:]
     camera_status['gaze-ready'].clear()
 
     # Send "gaze-ready" to notify the client
     await websocket_send_json(websocket, {
       'status': 'gaze-ready',
-      'gaze_x': gaze_x, 'gaze_y': gaze_y, 'tid': tid,
+      'gaze_x': gaze_x, 'gaze_y': gaze_y,
     })
 
 async def server_process(websocket, config_path):
   logging.info('websocket server started, listening for requests')
   logging.info(f'loading estimator configuration from {config_path}')
 
-  camera_status = {}
-
   # Send "server-on" to notify the client
-  await websocket_send_json(websocket, { 'status': 'server-on' })
+  await server_hello(websocket, config_path)
+
+  camera_status = {}
 
   while True:
     try:  # Wait for the message until a timeout occurs
-      message = await asyncio.wait_for(websocket.recv(), timeout=0.02)
+      message = await asyncio.wait_for(websocket.recv(), timeout=0.01)
     except websockets.ConnectionClosed:
       break # Close server upon closed client
     except asyncio.TimeoutError:

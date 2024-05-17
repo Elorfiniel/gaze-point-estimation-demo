@@ -47,7 +47,7 @@ def predict_screen_xy(model, crops, norm_ldmks, face_resize, eyes_resize,
 
   # Display predicted gaze point on the screen
   gaze_screen_xy = gaze_vec_to_screen_xy(gaze_vec, topleft_offset,
-                                          screen_size_px, screen_size_cm)
+                                         screen_size_px, screen_size_cm)
   if gaze_screen_xy is not None:
     gx = gx_filter.filter(gaze_screen_xy[0])
     gy = gy_filter.filter(gaze_screen_xy[1])
@@ -55,4 +55,4 @@ def predict_screen_xy(model, crops, norm_ldmks, face_resize, eyes_resize,
     gy = clamp_with_converter(gy, 0, screen_size_px[0], converter=int)
     gaze_screen_xy = (gx, gy)
 
-  return gaze_screen_xy, inference_time
+  return gaze_screen_xy, gaze_vec, inference_time
