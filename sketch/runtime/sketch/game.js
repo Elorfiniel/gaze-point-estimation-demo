@@ -356,6 +356,10 @@ class GameSystem {
     this.explosionMaxDensity = 42
   }
 
+  getEnemyKilled() {
+    return this.enemyKilled
+  }
+
   cannonRotate() {
     return this.cannonCurrAngle - this.cannonRestAngle
   }
