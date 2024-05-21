@@ -1,6 +1,6 @@
 class Enemy {
   constructor() {
-    const minX = 0.06 * windowWidth
+    const minX = 0.12 * windowWidth
     const maxX = windowWidth - minX
 
     this.x = minX + (maxX - minX) * Math.random()
@@ -9,7 +9,7 @@ class Enemy {
 
     const quadA = -8 * windowHeight / (15 * pow(windowWidth, 2))
     const quadB = 8 * windowHeight / (15 * windowWidth)
-    const quadC = 0.2 * windowHeight
+    const quadC = 0.24 * windowHeight
 
     const minY = quadA * pow(this.x, 2) + quadB * this.x + quadC
     const maxY = windowHeight - 40
@@ -163,7 +163,6 @@ class Cannon {
     rotate(rot)
 
     // Fire
-
     for (let laser of this.lasers) {
       laser.draw()
     }
