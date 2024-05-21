@@ -10,7 +10,14 @@ function drawViewsForState(ctx, viewNames) {
 }
 
 function createViewHelper(name, ctx, draw_fn = (c) => {}, update_fn = (c) => {}) {
-  const view = new UiComponent(name, ctx, draw_fn, update_fn)
+  const view = new UiComponent(name, ctx, (c) => {
+    push()
+
+    scale(ctx.values.get('ui-scale'))
+    draw_fn(c)
+
+    pop()
+  }, update_fn)
   ctx.views.add(name, view)
 }
 
@@ -20,6 +27,15 @@ function createViewHelper(name, ctx, draw_fn = (c) => {}, update_fn = (c) => {})
  * Initialize views for different game states.
  */
 function createGameViews(ctx) {
+  // Scale properly so that the ui components can adapt to different screen size
+  const scaling = windowWidth / 1528
+  context.values.add('ui-scale', scaling)
+
+  // Specifically, all components are placed in a 16:9 area centered on screen
+  const idealHeight = windowWidth / 16 * 9
+  const uiShift = (windowHeight - idealHeight) / 2
+  context.values.add('ui-shift', uiShift / scaling)
+
   const introViews = createViewsForIntro(ctx)
   ctx.values.add('introViews', introViews)
   const oncamViews = createViewsForOncam(ctx)
@@ -39,12 +55,14 @@ function createViewsForIntro(ctx) {
     (c) => {
       const titleContent = '深  空  防  御'
 
+      const uiShift = ctx.values.get('ui-shift')
+
       noFill()
       stroke(39, 55, 77)
       strokeWeight(2)
       textAlign(CENTER, TOP)
       textSize(48)
-      text(titleContent, 0.5 * windowWidth, 60)
+      text(titleContent, 764, 60 + uiShift)
     },
   )
 
@@ -58,10 +76,9 @@ function createViewsForIntro(ctx) {
         '我们的算法将试图从捕获的面部图像中分析您的视线方向，以估计您在屏幕上注视的的位置。' +
         '考虑到个体间的差异，请在体验本游戏时适当调整您的位置和姿态，以获得更好的估计。'
       const noteContent = '我们在此郑重承诺，本游戏使用摄像头捕获的面部图像仅用于' +
-        '实时计算 “视线信息” 。请您知晓您的个人数据 “不会被” 我们保存。'
+        '实时计算 “视线信息” 。请您知晓，您的个人数据 “不会被” 保存。'
 
-      const boxHeight = 0.6 * windowHeight
-      const boxWidth = 1.5 * boxHeight
+      const uiShift = ctx.values.get('ui-shift')
 
       noFill()
       textAlign(CENTER, TOP)
@@ -69,31 +86,20 @@ function createViewsForIntro(ctx) {
       stroke(39, 55, 77)
       strokeWeight(2)
       rectMode(CENTER)
-      rect(0.5 * windowWidth, 0.5 * windowHeight, boxWidth, boxHeight)
+      rect(764, 430 + uiShift, 774, 516)
 
       stroke(169, 29, 58)
       strokeWeight(1.6)
       textSize(32)
-      text(
-        warnIntro,
-        0.5 * windowWidth, 0.5 * windowHeight - 0.5 * boxHeight + 36,
-      )
+      text(warnIntro, 764, 208 + uiShift)
 
       stroke(39, 55, 77)
       strokeWeight(1.6)
       textSize(24)
       textWrap(CHAR)
       textLeading(40)
-      text(
-        warnContent,
-        0.5 * windowWidth, 0.5 * windowHeight + 72,
-        boxWidth - 2 * 30, boxHeight - 2 * 30,
-      )
-      text(
-        noteContent,
-        0.5 * windowWidth, 0.5 * windowHeight + 288,
-        boxWidth - 2 * 30, boxHeight - 2 * 30,
-      )
+      text(warnContent, 764, 502 + uiShift, 714, 456)
+      text(noteContent, 764, 718 + uiShift, 714, 456)
     }
   )
 
@@ -103,15 +109,18 @@ function createViewsForIntro(ctx) {
     (c) => {
       const buttonText = '开  始  游  戏'
 
-      const boxHeight = 0.6 * windowHeight
+      const uiShift = ctx.values.get('ui-shift')
 
       const checkMouse = (x, y) => {
-        const xMin = 0.5 * windowWidth - 100
-        const xMax = 0.5 * windowWidth + 100
-        const yMin = 0.5 * windowHeight + 0.36 * boxHeight - 25
-        const yMax = 0.5 * windowHeight + 0.36 * boxHeight + 25
+        const scaling = ctx.values.get('ui-scale')
 
-        return xMin <= x && x <= xMax && yMin <= y && y <= yMax
+        x = x / scaling
+        y = y / scaling
+
+        const xInRange = 664 <= x && x <= 864
+        const yInRange = 590.8 + uiShift <= y && y <= 640.8 + uiShift
+
+        return xInRange && yInRange
       }
       const onHover = checkMouse(mouseX, mouseY)
 
@@ -123,15 +132,12 @@ function createViewsForIntro(ctx) {
       }
       strokeWeight(2)
       rectMode(CENTER)
-      rect(0.5 * windowWidth, 0.5 * windowHeight + 0.36 * boxHeight, 200, 50)
+      rect(764, 615.8 + uiShift, 200, 50)
 
       strokeWeight(1.6)
       textAlign(CENTER, CENTER)
       textSize(24)
-      text(
-        buttonText,
-        0.5 * windowWidth, 0.5 * windowHeight + 0.36 * boxHeight - 4,
-      )
+      text(buttonText, 764, 611.8 + uiShift)
 
       if (onHover && mouseIsPressed) {
         c.states.setFutureState(c.states.states.ONCAM)
@@ -149,13 +155,14 @@ function createViewsForOncam(ctx) {
     (c) => {
       const messageText = '[  请  等  待  摄  像  头  开  启  ]'
 
-      textAlign(CENTER, TOP); textSize(32)
+      const uiShift = ctx.values.get('ui-shift')
+
       noFill()
-      stroke(169, 29, 58); strokeWeight(1.6)
-      text(
-        messageText,
-        0.5 * windowWidth, 0.5 * windowHeight,
-      )
+      stroke(169, 29, 58)
+      strokeWeight(1.6)
+      textAlign(CENTER, TOP)
+      textSize(32)
+      text(messageText, 764, 430 + uiShift)
     },
   )
 
@@ -167,6 +174,8 @@ function createViewsForGame(ctx) {
     'count-down',
     ctx,
     (c) => {
+      const uiShift = ctx.values.get('ui-shift')
+
       const maxTime = c.values.get('game-time')
 
       const start = c.values.get('game-start')
@@ -184,7 +193,7 @@ function createViewsForGame(ctx) {
       strokeWeight(1.6)
       textAlign(LEFT, TOP)
       textSize(20)
-      text(timeText, 36, 36)
+      text(timeText, 36, 36 + uiShift)
 
       if (timeRemain == 0) {
         c.states.setFutureState(c.states.states.CLOSE)
@@ -196,6 +205,8 @@ function createViewsForGame(ctx) {
     'score-board',
     ctx,
     (c) => {
+      const uiShift = ctx.values.get('ui-shift')
+
       const scoreText = `击落敌机：${c.game.getEnemyKilled()}`
 
       noFill()
@@ -203,7 +214,7 @@ function createViewsForGame(ctx) {
       strokeWeight(1.6)
       textAlign(RIGHT, TOP)
       textSize(20)
-      text(scoreText, windowWidth - 36, 36)
+      text(scoreText, 1492, 36 + uiShift)
     },
   )
 
@@ -217,13 +228,14 @@ function createViewsForClose(ctx) {
     (c) => {
       const messageText = '[  请  等  待  摄  像  头  关  闭  ]'
 
-      textAlign(CENTER, TOP); textSize(32)
+      const uiShift = ctx.values.get('ui-shift')
+
       noFill()
-      stroke(169, 29, 58); strokeWeight(1.6)
-      text(
-        messageText,
-        0.5 * windowWidth, 0.5 * windowHeight,
-      )
+      stroke(169, 29, 58)
+      strokeWeight(1.6)
+      textAlign(CENTER, TOP)
+      textSize(32)
+      text(messageText, 764, 430 + uiShift)
     },
   )
 
@@ -235,6 +247,8 @@ function createViewsForOutro(ctx) {
     'congrats',
     ctx,
     (c) => {
+      const uiShift = ctx.values.get('ui-shift')
+
       const congratsText = 'C  O  N  G  R  A  T  U  L  A  T  I  O  N'
       const scoreText = `您总共击落敌机 ${c.game.getEnemyKilled()} 架`
 
@@ -243,12 +257,12 @@ function createViewsForOutro(ctx) {
       strokeWeight(2.0)
       textAlign(CENTER, TOP)
       textSize(48)
-      text(congratsText, 0.5 * windowWidth, 0.3 * windowHeight)
+      text(congratsText, 764, 258 + uiShift)
 
       stroke(39, 55, 77)
       strokeWeight(1.6)
       textSize(28)
-      text(scoreText, 0.5 * windowWidth, 0.4 * windowHeight)
+      text(scoreText, 764, 344 + uiShift)
     },
   )
 
@@ -256,17 +270,20 @@ function createViewsForOutro(ctx) {
     'restart-button',
     ctx,
     (c) => {
+      const uiShift = ctx.values.get('ui-shift')
+
       const buttonText = '重  新  开  始'
 
-      const boxHeight = 0.6 * windowHeight
-
       const checkMouse = (x, y) => {
-        const xMin = 0.5 * windowWidth - 100
-        const xMax = 0.5 * windowWidth + 100
-        const yMin = 0.5 * windowHeight + 0.3 * boxHeight - 25
-        const yMax = 0.5 * windowHeight + 0.3 * boxHeight + 25
+        const scaling = ctx.values.get('ui-scale')
 
-        return xMin <= x && x <= xMax && yMin <= y && y <= yMax
+        x = x / scaling
+        y = y / scaling
+
+        const xInRange = 664 <= x && x <= 864
+        const yInRange = 559.8 + uiShift <= y && y <= 609.8 + uiShift
+
+        return xInRange && yInRange
       }
       const onHover = checkMouse(mouseX, mouseY)
 
@@ -278,15 +295,12 @@ function createViewsForOutro(ctx) {
       }
       strokeWeight(2)
       rectMode(CENTER)
-      rect(0.5 * windowWidth, 0.5 * windowHeight + 0.3 * boxHeight, 200, 50)
+      rect(764, 584.8 + uiShift, 200, 50)
 
       strokeWeight(1.6)
       textAlign(CENTER, CENTER)
       textSize(24)
-      text(
-        buttonText,
-        0.5 * windowWidth, 0.5 * windowHeight + 0.3 * boxHeight - 4,
-      )
+      text(buttonText, 764, 580.8 + uiShift)
 
       if (onHover && mouseIsPressed) {
         c.states.setFutureState(c.states.states.INTRO)
@@ -492,7 +506,6 @@ function actOnSwitchToOutro(ctx) {
  */
 function switchGameState(ctx) {
   ctx.states.switchState()
-  // TODO: handle side effects
 }
 
 
