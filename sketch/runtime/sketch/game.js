@@ -153,12 +153,12 @@ class Cannon {
     // Ship
     fill(39, 55, 77)
     noStroke()
-    quad(32, -40, 40, 10, 5, 80, 5, -40)
-    quad(-32, -40, -40, 10, -5, 80, -5, -40)
+    quad(45, -56, 56, 14, 7, 112, 7, -56)
+    quad(-45, -56, -56, 14, -7, 112, -7, -56)
 
     fill(221, 230, 237)
-    circle(0, 0, 40)
-    circle(0, 70, 36)
+    circle(0, 0, 52)
+    circle(0, 98, 50)
 
     rotate(rot)
 
@@ -171,27 +171,27 @@ class Cannon {
     fill(39, 55, 77)
     stroke(221, 230, 237)
     strokeWeight(3.0)
-    quad(-6, 0, -6, 54, 6, 54, 6, 0)
+    quad(-8, 0, -8, 76, 8, 76, 8, 0)
 
     fill(39, 55, 77)
     noStroke()
-    circle(0, 0, 18)
+    circle(0, 0, 26)
 
     noFill()
     stroke(169, 29, 58)
     strokeWeight(4.0)
-    circle(0, 0, 28)
+    circle(0, 0, 38)
 
     fill(169, 29, 58)
     stroke(221, 230, 237)
     strokeWeight(3.0)
-    quad(-6, 54, -10, 62, 10, 62, 6, 54)
+    quad(-8, 76, -14, 86, 14, 86, 8, 76)
 
     fill(39, 55, 77)
     stroke(221, 230, 237)
     strokeWeight(3.0)
-    quad(-10, 62, -10, 74, 10, 74, 10, 62)
-    quad(-10, 62, -10, 74, 10, 74, 10, 62)
+    quad(-14, 86, -14, 104, 14, 104, 14, 86)
+    quad(-14, 86, -14, 104, 14, 104, 14, 86)
 
     pop()
   }
