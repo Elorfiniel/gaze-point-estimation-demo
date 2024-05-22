@@ -37,15 +37,15 @@ function createGameViews(ctx) {
   context.values.add('ui-shift', uiShift / scaling)
 
   const introViews = createViewsForIntro(ctx)
-  ctx.values.add('introViews', introViews)
+  ctx.values.add('intro-views', introViews)
   const oncamViews = createViewsForOncam(ctx)
-  ctx.values.add('oncamViews', oncamViews)
+  ctx.values.add('oncam-views', oncamViews)
   const gameViews = createViewsForGame(ctx)
-  ctx.values.add('gameViews', gameViews)
+  ctx.values.add('game-views', gameViews)
   const closeViews = createViewsForClose(ctx)
-  ctx.values.add('closeViews', closeViews)
+  ctx.values.add('close-views', closeViews)
   const outroViews = createViewsForOutro(ctx)
-  ctx.values.add('outroViews', outroViews)
+  ctx.values.add('outro-views', outroViews)
 }
 
 function createViewsForIntro(ctx) {
@@ -320,9 +320,9 @@ function configureSocket(ctx) {
     const allStates = ctx.states.allStates()
 
     if (msgObj.status == 'server-on') {
-      ctx.values.add('topleftOffset', msgObj.topleftOffset)
-      ctx.values.add('screenSizePx', msgObj.screenSizePx)
-      ctx.values.add('screenSizeCm', msgObj.screenSizeCm)
+      ctx.values.add('topleft-offset', msgObj.topleftOffset)
+      ctx.values.add('screen-size-px', msgObj.screenSizePx)
+      ctx.values.add('screen-size-cm', msgObj.screenSizeCm)
 
       ctx.display.setScreenOrigin(msgObj.topleftOffset[0], msgObj.topleftOffset[1])
       ctx.display.setActualSize(msgObj.screenSizeCm[0], msgObj.screenSizeCm[1])
@@ -374,7 +374,7 @@ function drawGameStates(ctx) {
 }
 
 function drawWhenIntro(ctx) {
-  const introViews = ctx.values.get('introViews')
+  const introViews = ctx.values.get('intro-views')
 
   background(221, 230, 237)
   ctx.space.draw()
@@ -385,7 +385,7 @@ function drawWhenIntro(ctx) {
 }
 
 function drawWhenOncam(ctx) {
-  const oncamViews = ctx.values.get('oncamViews')
+  const oncamViews = ctx.values.get('oncam-views')
 
   background(221, 230, 237)
   ctx.space.draw()
@@ -398,7 +398,7 @@ function drawWhenOncam(ctx) {
 function drawWhenGame(ctx) {
   let gazeXY = undefined
 
-  const gameViews = ctx.values.get('gameViews')
+  const gameViews = ctx.values.get('game-views')
   const gaze = ctx.values.get('gaze')
   const gazeNew = ctx.values.pop('gaze-new')
 
@@ -423,7 +423,7 @@ function drawWhenGame(ctx) {
 }
 
 function drawWhenClose(ctx) {
-  const closeViews = ctx.values.get('closeViews')
+  const closeViews = ctx.values.get('close-views')
 
   background(221, 230, 237)
   ctx.space.draw()
@@ -434,7 +434,7 @@ function drawWhenClose(ctx) {
 }
 
 function drawWhenOutro(ctx) {
-  const outroViews = ctx.values.get('outroViews')
+  const outroViews = ctx.values.get('outro-views')
 
   background(221, 230, 237)
   ctx.space.draw()
