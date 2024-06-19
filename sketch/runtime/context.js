@@ -6,7 +6,9 @@ class GameContext {
     this.values = new SimpleDict()
     this.socket = new SocketManager()
     this.display = new DisplayConvert()
+
     this.space = undefined
     this.game = undefined
+    this.canvas = undefined
   }
 }

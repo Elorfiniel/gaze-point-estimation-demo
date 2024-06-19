@@ -520,9 +520,9 @@ function preload() {
 }
 
 function setup() {
-  const canvas = document.getElementById("canvas")
+  context.canvas = document.getElementById("canvas")
+  createCanvas(windowWidth, windowHeight, P2D, context.canvas)
 
-  createCanvas(windowWidth, windowHeight, P2D, canvas)
   textFont(context.assets.get('font'))
 
   createGameViews(context)
