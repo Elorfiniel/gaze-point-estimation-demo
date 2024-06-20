@@ -1,8 +1,9 @@
 class DisplayConvert {
   constructor() {
     this.actualSize = undefined
-    this.windowSize = undefined
+    this.screenSize = undefined
     this.screenOrigin = undefined
+    this.viewportOffset = undefined
   }
 
   setScreenOrigin(cx, cy) {
@@ -13,27 +14,45 @@ class DisplayConvert {
     this.actualSize = [ah, aw]
   }
 
-  setWindowSize(wh, ww) {
-    this.windowSize = [wh, ww]
+  setScreenSize(wh, ww) {
+    this.screenSize = [wh, ww]
   }
 
-  actual2window(ax, ay) {
-    const sx = ax - this.screenOrigin[0]
-    const sy = -ay + this.screenOrigin[1]
-
-    const wx = this.windowSize[1] * sx / this.actualSize[1]
-    const wy = this.windowSize[0] * sy / this.actualSize[0]
-
-    return [wx, wy]
+  setViewportOffset(vsx, vsy) {
+    this.viewportOffset = [vsx, vsy]
   }
 
-  window2actual(wx, wy) {
-    const sx = this.actualSize[1] * wx / this.windowSize[1]
-    const sy = this.actualSize[0] * wy / this.windowSize[0]
+  actual2screen(ax, ay) {
+    const tx = ax - this.screenOrigin[0]
+    const ty = -ay + this.screenOrigin[1]
 
-    const ax = sx + this.screenOrigin[0]
-    const ay = -sy + this.screenOrigin[1]
+    const sx = this.screenSize[1] * tx / this.actualSize[1]
+    const sy = this.screenSize[0] * ty / this.actualSize[0]
+
+    return [sx, sy]
+  }
+
+  screen2actual(sx, sy) {
+    const tx = this.actualSize[1] * sx / this.screenSize[1]
+    const ty = this.actualSize[0] * sy / this.screenSize[0]
+
+    const ax = tx + this.screenOrigin[0]
+    const ay = -ty + this.screenOrigin[1]
 
     return [ax, ay]
+  }
+
+  screen2canvas(sx, sy) {
+    const cx = sx - this.viewportOffset[0]
+    const cy = sy - this.viewportOffset[1]
+
+    return [cx, cy]
+  }
+
+  canvas2screen(cx, cy) {
+    const sx = cx + this.viewportOffset[0]
+    const sy = cy + this.viewportOffset[1]
+
+    return [sx, sy]
   }
 }

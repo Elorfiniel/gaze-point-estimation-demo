@@ -141,6 +141,7 @@ function createViewsForIntro(ctx) {
 
       if (onHover && mouseIsPressed) {
         c.states.setFutureState(c.states.states.ONCAM)
+        ctx.display.setViewportOffset(devMouseX - winMouseX, devMouseY - winMouseY)
       }
     },
   )
@@ -326,7 +327,7 @@ function configureSocket(ctx) {
 
       ctx.display.setScreenOrigin(msgObj.topleftOffset[0], msgObj.topleftOffset[1])
       ctx.display.setActualSize(msgObj.screenSizeCm[0], msgObj.screenSizeCm[1])
-      ctx.display.setWindowSize(windowHeight, windowWidth)
+      ctx.display.setScreenSize(screen.height, screen.width)
     }
 
     if (msgObj.status == 'camera-on') {
@@ -406,7 +407,8 @@ function drawWhenGame(ctx) {
   ctx.space.draw()
 
   if (gaze !== undefined) {
-    gazeXY = ctx.display.actual2window(gaze[0], gaze[1])
+    const screenXY = ctx.display.actual2screen(gaze[0], gaze[1])
+    gazeXY = ctx.display.screen2canvas(screenXY[0], screenXY[1])
     ctx.game.draw(gazeXY[0], gazeXY[1])
   }
   if (gazeNew !== undefined && gazeNew == true) {
@@ -484,8 +486,7 @@ function actOnSwitchToOncam(ctx) {
 }
 
 function actOnSwitchToGame(ctx) {
-  const xy = ctx.display.actual2window(0, 0)
-  ctx.game = new GameSystem(xy[0], xy[1])
+  ctx.game = new GameSystem(windowWidth / 2, -2)
 
   const startTime = new Date()
   ctx.values.add('game-start', startTime)
