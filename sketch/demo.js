@@ -141,6 +141,8 @@ function createViewsForIntro(ctx) {
 
       if (onHover && mouseIsPressed) {
         c.states.setFutureState(c.states.states.ONCAM)
+        ctx.values.add('init-outer-x', screenLeft)
+        ctx.values.add('init-outer-y', screenTop)
         ctx.display.setViewportOffset(devMouseX - winMouseX, devMouseY - winMouseY)
       }
     },
@@ -408,8 +410,19 @@ function drawWhenGame(ctx) {
 
   if (gaze !== undefined) {
     const screenXY = ctx.display.actual2screen(gaze[0], gaze[1])
-    gazeXY = ctx.display.screen2canvas(screenXY[0], screenXY[1])
+
+    const xUpdate = screenLeft - ctx.values.get('init-outer-x')
+    const yUpdate = screenTop - ctx.values.get('init-outer-y')
+
+    gazeXY = ctx.display.screen2canvas(screenXY[0], screenXY[1], xUpdate, yUpdate)
     ctx.game.draw(gazeXY[0], gazeXY[1])
+
+    push()
+    noFill()
+    stroke(0)
+    strokeWeight(2)
+    circle(gazeXY[0], gazeXY[1], 10)
+    pop()
   }
   if (gazeNew !== undefined && gazeNew == true) {
     ctx.values.add('gaze-new', false)

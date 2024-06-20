@@ -42,16 +42,16 @@ class DisplayConvert {
     return [ax, ay]
   }
 
-  screen2canvas(sx, sy) {
-    const cx = sx - this.viewportOffset[0]
-    const cy = sy - this.viewportOffset[1]
+  screen2canvas(sx, sy, sxu, syu) {
+    const cx = sx - this.viewportOffset[0] - sxu
+    const cy = sy - this.viewportOffset[1] - syu
 
     return [cx, cy]
   }
 
-  canvas2screen(cx, cy) {
-    const sx = cx + this.viewportOffset[0]
-    const sy = cy + this.viewportOffset[1]
+  canvas2screen(cx, cy, sxu, syu) {
+    const sx = cx + this.viewportOffset[0] + sxu
+    const sy = cy + this.viewportOffset[1] + syu
 
     return [sx, sy]
   }
