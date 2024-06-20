@@ -13,6 +13,7 @@ import cv2
 import json
 import multiprocessing
 import numpy as np
+import os.path as osp
 import websockets
 
 
@@ -117,7 +118,7 @@ def camera_process(config_path, open_event, kill_event, value_bank, value_lock, 
 
 
 
-async def server_hello(websocket, config_path):
+async def server_hello(websocket, config_path, record_mode):
   # Load actual screen height and width from the PoG estimator configuration
   config = load_toml_secure(config_path)
   # Send "server-on" to notify the client
@@ -126,9 +127,10 @@ async def server_hello(websocket, config_path):
     'topleftOffset': config['topleft_offset'],
     'screenSizePx': config['screen_size_px'],
     'screenSizeCm': config['screen_size_cm'],
+    'recordMode': record_mode,
   })
 
-async def handle_message(message, websocket, camera_status, config_path):
+async def handle_message(message, websocket, camera_status, config_path, record_path):
   logging.debug(f'websocket server received message - {message}')
 
   message_obj = json.loads(message)
@@ -179,12 +181,15 @@ async def broadcast_gaze(websocket, camera_status):
       'gaze_x': gaze_x, 'gaze_y': gaze_y,
     })
 
-async def server_process(websocket, config_path):
+async def server_process(websocket, config_path, record_mode, record_path):
   logging.info('websocket server started, listening for requests')
   logging.info(f'loading estimator configuration from {config_path}')
+  if record_mode:
+    logging.info(f'recording mode on, save recordings to {record_path}')
+  record_path = osp.abspath(record_path) if record_mode else ''
 
   # Send "server-on" to notify the client
-  await server_hello(websocket, config_path)
+  await server_hello(websocket, config_path, record_mode)
 
   camera_status = {}
 
@@ -197,7 +202,7 @@ async def server_process(websocket, config_path):
       message = None
 
     if message is not None:
-      await handle_message(message, websocket, camera_status, config_path)
+      await handle_message(message, websocket, camera_status, config_path, record_path)
 
     if camera_status.get('camera-proc', None):
       await broadcast_gaze(websocket, camera_status)
@@ -220,7 +225,12 @@ def main_procedure(cmdargs: Namespace):
   configure_logging(logging.INFO, force=True)
   logging.info('starting the websocket server to listen for client requests')
 
-  ws_handler = functools.partial(server_process, config_path=cmdargs.config)
+  ws_handler = functools.partial(
+    server_process,
+    config_path=cmdargs.config,
+    record_mode=cmdargs.record_mode,
+    record_path=cmdargs.record_path,
+  )
   asyncio.run(websocket_server(ws_handler, cmdargs.host, cmdargs.port))
 
   logging.info('websocket finished execution, now exiting')
@@ -237,5 +247,10 @@ if __name__ == '__main__':
                       help='The host address to bind the server to. Default is localhost.')
   parser.add_argument('--port', type=int, default=4200,
                       help='The port number to bind the server to. Default is 4200.')
+
+  parser.add_argument('--record-mode', type=bool, default=False, action='store_true',
+                      help='Enable recording mode. Default is False.')
+  parser.add_argument('--record-path', type=str, default='demo-capture',
+                      help='The path to store the recordings. Default is "demo-capture".')
 
   main_procedure(parser.parse_args())
