@@ -1,9 +1,10 @@
 from runtime.facealign import FaceAlignment
+from runtime.inference import predict_screen_xy
 from runtime.miscellaneous import *
 from runtime.one_euro import OneEuroFilter
 from runtime.pipeline import load_model
 from runtime.preview import *
-from runtime.inference import predict_screen_xy
+from runtime.storage import FrameCache, RecordingManager
 
 from argparse import ArgumentParser, Namespace
 
@@ -14,10 +15,12 @@ import json
 import multiprocessing
 import numpy as np
 import os.path as osp
+import queue
 import websockets
 
 
 def camera_handler(open_event, kill_event, value_bank, value_lock, gaze_ready,
+                   record_path, save_queue,
                    model, camera_id,
                    topleft_offset, screen_size_px, screen_size_cm,
                    capture_resolution, target_resolution,
@@ -25,6 +28,7 @@ def camera_handler(open_event, kill_event, value_bank, value_lock, gaze_ready,
                    pv_mode='none', pv_window='preview',
                    pv_items=['frame', 'gaze', 'time', 'warn'],
                    gx_filt_params=dict(), gy_filt_params=dict()):
+  frame_count = 0
 
   # Create a video capture for the specified camera id
   capture = cv2.VideoCapture(camera_id)
@@ -80,7 +84,10 @@ def camera_handler(open_event, kill_event, value_bank, value_lock, gaze_ready,
         with value_lock:
           value_bank[0] = gaze_vec[0] # Gaze: x
           value_bank[1] = gaze_vec[1] # Gaze: y
+          value_bank[2] = frame_count # Tid: frame
         gaze_ready.set()
+
+        frame_count += 1
 
       # Display extra information on the preview
       if gaze_screen_xy is not None:
@@ -99,7 +106,8 @@ def camera_handler(open_event, kill_event, value_bank, value_lock, gaze_ready,
   alignment.close()
   capture.release()
 
-def camera_process(config_path, open_event, kill_event, value_bank, value_lock, gaze_ready):
+def camera_process(config_path, record_path, save_queue,
+                   open_event, kill_event, value_bank, value_lock, gaze_ready):
   '''Load model using configuration, start the camera handler.'''
 
   logging.info('gaze point estimator will start in a few seconds')
@@ -110,8 +118,8 @@ def camera_process(config_path, open_event, kill_event, value_bank, value_lock, 
   model = load_model(config_path, config.pop('checkpoint'))
   # Handle control to camera handler
   camera_handler(
-    open_event, kill_event, value_bank, value_lock,
-    gaze_ready, model, **config,
+    open_event, kill_event, value_bank, value_lock, gaze_ready,
+    record_path, save_queue, model, **config,
   )
 
   logging.info('gaze point estimator has been safely closed, now terminating')
@@ -140,12 +148,14 @@ async def handle_message(message, websocket, camera_status, config_path, record_
     camera_status['camera-open'] = multiprocessing.Event()
     camera_status['camera-kill'] = multiprocessing.Event()
     camera_status['gaze-ready'] = multiprocessing.Event()
-    camera_status['value-bank'] = multiprocessing.Array('d', (0.0, 0.0))
+    camera_status['value-bank'] = multiprocessing.Array('d', (0.0, 0.0, 0.0))
     camera_status['value-lock'] = multiprocessing.Lock()
+    camera_status['save-queue'] = multiprocessing.Queue()
 
     camera_status['camera-proc'] = multiprocessing.Process(
       target=camera_process, args=(
-        config_path,
+        config_path, record_path,
+        camera_status['save-queue'],
         camera_status['camera-open'],
         camera_status['camera-kill'],
         camera_status['value-bank'],
@@ -172,13 +182,13 @@ async def handle_message(message, websocket, camera_status, config_path, record_
 async def broadcast_gaze(websocket, camera_status):
   if camera_status['gaze-ready'].is_set():
     with camera_status['value-lock']:
-      gaze_x, gaze_y = camera_status['value-bank'][:]
+      gaze_x, gaze_y, tid = camera_status['value-bank'][:]
     camera_status['gaze-ready'].clear()
 
     # Send "gaze-ready" to notify the client
     await websocket_send_json(websocket, {
       'status': 'gaze-ready',
-      'gaze_x': gaze_x, 'gaze_y': gaze_y,
+      'gaze_x': gaze_x, 'gaze_y': gaze_y, 'tid': tid,
     })
 
 async def server_process(websocket, config_path, record_mode, record_path):
