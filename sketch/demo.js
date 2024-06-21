@@ -326,6 +326,7 @@ function configureSocket(ctx) {
       ctx.values.add('topleft-offset', msgObj.topleftOffset)
       ctx.values.add('screen-size-px', msgObj.screenSizePx)
       ctx.values.add('screen-size-cm', msgObj.screenSizeCm)
+      ctx.values.add('record-mode', msgObj.recordMode)
 
       ctx.display.setScreenOrigin(msgObj.topleftOffset[0], msgObj.topleftOffset[1])
       ctx.display.setActualSize(msgObj.screenSizeCm[0], msgObj.screenSizeCm[1])
@@ -341,8 +342,7 @@ function configureSocket(ctx) {
     }
 
     if (msgObj.status == 'gaze-ready') {
-      // TODO: add id for each gaze-ready message
-      ctx.values.add('gaze', [msgObj.gaze_x, msgObj.gaze_y])
+      ctx.values.add('gaze', [msgObj.gaze_x, msgObj.gaze_y, msgObj.tid])
       ctx.values.add('gaze-new', true)
     }
   })
@@ -404,22 +404,37 @@ function drawWhenGame(ctx) {
   const gameViews = ctx.values.get('game-views')
   const gaze = ctx.values.get('gaze')
   const gazeNew = ctx.values.pop('gaze-new')
+  const recordMode = ctx.values.get('record-mode')
 
   background(221, 230, 237)
   ctx.space.draw()
 
+  const xUpdate = screenLeft - ctx.values.get('init-outer-x')
+  const yUpdate = screenTop - ctx.values.get('init-outer-y')
+
   if (gaze !== undefined) {
     const screenXY = ctx.display.actual2screen(gaze[0], gaze[1])
-
-    const xUpdate = screenLeft - ctx.values.get('init-outer-x')
-    const yUpdate = screenTop - ctx.values.get('init-outer-y')
-
     gazeXY = ctx.display.screen2canvas(screenXY[0], screenXY[1], xUpdate, yUpdate)
     ctx.game.draw(gazeXY[0], gazeXY[1])
   }
   if (gazeNew !== undefined && gazeNew == true) {
     ctx.values.add('gaze-new', false)
-    // TODO: send frame id and gaze on recording
+
+    if (recordMode == true && ctx.game.autoAimed.length > 0) {
+      // TODO: resolve for multiple aimed enemies
+      const enemy = ctx.game.autoAimed[0].trackedEnemy
+      const screenXY = ctx.display.canvas2screen(enemy.x, enemy.y, xUpdate, yUpdate)
+      const actualXY = ctx.display.screen2actual(screenXY[0], screenXY[1])
+
+      ctx.socket.sendMessage({
+        opcode: 'save-gaze',
+        tid: gaze[2],
+        gaze_x: gaze[0],
+        gaze_y: gaze[1],
+        label_x: actualXY[0],
+        label_y: actualXY[1],
+      })
+    }
   }
 
   drawViewsForState(ctx, gameViews)

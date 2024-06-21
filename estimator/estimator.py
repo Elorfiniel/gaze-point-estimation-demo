@@ -19,6 +19,17 @@ import queue
 import websockets
 
 
+def fetch_save_task(save_queue, frame_cache, recording_manager):
+  try:  # Fetch save task from save queue
+    tid, px, py, lx, ly = save_queue.get(timeout=0.01)
+    fetched_item = frame_cache.fast_fetch(tid)
+
+    if fetched_item is not None:
+      recording_manager.save_frame(fetched_item, px, py, lx, ly)
+
+  except queue.Empty:
+    pass  # Nothing to save
+
 def camera_handler(open_event, kill_event, value_bank, value_lock, gaze_ready,
                    record_path, save_queue,
                    model, camera_id,
@@ -29,6 +40,11 @@ def camera_handler(open_event, kill_event, value_bank, value_lock, gaze_ready,
                    pv_items=['frame', 'gaze', 'time', 'warn'],
                    gx_filt_params=dict(), gy_filt_params=dict()):
   frame_count = 0
+
+  if record_path:
+    # Create a recording manager to save captured frames
+    frame_cache = FrameCache(max_count=600)
+    recording_manager = RecordingManager(root=record_path)
 
   # Create a video capture for the specified camera id
   capture = cv2.VideoCapture(camera_id)
@@ -87,6 +103,8 @@ def camera_handler(open_event, kill_event, value_bank, value_lock, gaze_ready,
           value_bank[2] = frame_count # Tid: frame
         gaze_ready.set()
 
+        if record_path:
+          frame_cache.insert_frame(source_image, frame_count)
         frame_count += 1
 
       # Display extra information on the preview
@@ -99,12 +117,20 @@ def camera_handler(open_event, kill_event, value_bank, value_lock, gaze_ready,
 
     if display_canvas(pv_window, canvas, pv_mode, pv_items): break
 
+    # Save the captured frame on disk, if any
+    if record_path and not save_queue.empty():
+      fetch_save_task(save_queue, frame_cache, recording_manager)
+
   # Destroy named windows used for preview
   if pv_mode != 'none':
     cv2.destroyAllWindows()
 
   alignment.close()
   capture.release()
+
+  # Flash the remaining save task inside the save queue
+  while record_path and not save_queue.empty():
+    fetch_save_task(save_queue, frame_cache, recording_manager)
 
 def camera_process(config_path, record_path, save_queue,
                    open_event, kill_event, value_bank, value_lock, gaze_ready):
@@ -178,6 +204,16 @@ async def handle_message(message, websocket, camera_status, config_path, record_
 
     # Send "camera-off" to notify the client
     await websocket_send_json(websocket, { 'status': 'camera-off' })
+
+  # On receiving "save-gaze", enqueue label in the save task queue
+  if message_obj['opcode'] == 'save-gaze':
+    camera_status['save-queue'].put((
+      message_obj['tid'],
+      message_obj['gaze_x'],
+      message_obj['gaze_y'],
+      message_obj['label_x'],
+      message_obj['label_y'],
+    ))
 
 async def broadcast_gaze(websocket, camera_status):
   if camera_status['gaze-ready'].is_set():
@@ -258,7 +294,7 @@ if __name__ == '__main__':
   parser.add_argument('--port', type=int, default=4200,
                       help='The port number to bind the server to. Default is 4200.')
 
-  parser.add_argument('--record-mode', type=bool, default=False, action='store_true',
+  parser.add_argument('--record-mode', default=False, action='store_true',
                       help='Enable recording mode. Default is False.')
   parser.add_argument('--record-path', type=str, default='demo-capture',
                       help='The path to store the recordings. Default is "demo-capture".')
