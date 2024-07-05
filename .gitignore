@@ -10,8 +10,12 @@ sketch/client.html
 sketch/client.js
 
 # ignore everything except assets README
-sketch/assets
+sketch/assets/*
 !sketch/assets/README.md
+
+# ignore everything except setup README
+estimator/runtime/tobiipro-sdk-python/*
+!estimator/runtime/tobiipro-sdk-python/README.md
 
 # ignore backup files and temp files
 *.bck
