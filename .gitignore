@@ -13,9 +13,11 @@ sketch/client.js
 sketch/assets/*
 !sketch/assets/README.md
 
-# ignore everything except setup README
+# ignore python and c implementation of tobii pro sdk
 estimator/runtime/tobiipro-sdk-python/*
 !estimator/runtime/tobiipro-sdk-python/README.md
+!estimator/runtime/tobiipro-sdk-python/tobiipro-sdk-c
+estimator/runtime/tobiipro-sdk-python/tobiipro-sdk-c/3rd-party
 
 # ignore backup files and temp files
 *.bck
