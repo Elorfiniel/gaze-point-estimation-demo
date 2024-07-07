@@ -13,7 +13,6 @@ TobiiResearchStatus find_all_eyetrackers() {
   size_t i = 0;
 
   result = tobii_research_find_all_eyetrackers(&eyetrackers);
-
   if (result != TOBII_RESEARCH_STATUS_OK) {
     printf("Finding trackers failed. Error: %d\n", result);
     return result;
