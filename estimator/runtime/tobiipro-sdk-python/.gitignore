@@ -1,0 +1,7 @@
+# ignore cmake build cache and targets
+tobiipro-sdk-c/build
+
+# ignore python and c implementation of tobii pro sdk
+tobiiresearch
+tobii_research.py
+tobiipro-sdk-c/3rd-party
