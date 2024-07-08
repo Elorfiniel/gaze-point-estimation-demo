@@ -49,11 +49,16 @@ function createGameViews(ctx) {
 }
 
 function createViewsForIntro(ctx) {
+  const recordMode = ctx.values.get('record-mode')
+
   createViewHelper(
     'game-title',
     ctx,
     (c) => {
-      const titleContent = '深  空  防  御'
+      let titleContent = '深  空  防  御'
+      if (recordMode == true) {
+        titleContent = '深  空  防  御  [  采  集  ]'
+      }
 
       const uiShift = ctx.values.get('ui-shift')
 
@@ -75,8 +80,12 @@ function createViewsForIntro(ctx) {
         '当您点击 “开始游戏” 按钮，即表示您知晓、理解并允许我们捕获您的面部图像。' +
         '我们的算法将试图从捕获的面部图像中分析您的视线方向，以估计您在屏幕上注视的的位置。' +
         '考虑到个体间的差异，请在体验本游戏时适当调整您的位置和姿态，以获得更好的估计。'
-      const noteContent = '我们在此郑重承诺，本游戏使用摄像头捕获的面部图像仅用于' +
+      let noteContent = '我们在此郑重承诺，本游戏使用摄像头捕获的面部图像仅用于' +
         '实时计算 “视线信息” 。请您知晓，您的个人数据 “不会被” 保存。'
+      if (recordMode == true) {
+        noteContent = '欢迎使用 “视点采集模式”，请您知晓，我们  “将会” 保存' +
+          '您的面部图像，用来不断改进本游戏的 “视点估计” 性能。'
+      }
 
       const uiShift = ctx.values.get('ui-shift')
 
@@ -326,7 +335,12 @@ function configureSocket(ctx) {
       ctx.values.add('topleft-offset', msgObj.topleftOffset)
       ctx.values.add('screen-size-px', msgObj.screenSizePx)
       ctx.values.add('screen-size-cm', msgObj.screenSizeCm)
+
       ctx.values.add('record-mode', msgObj.recordMode)
+      if (msgObj.recordMode == true) {
+        const introViews = createViewsForIntro(ctx)
+        ctx.values.add('intro-views', introViews)
+      }
 
       ctx.display.setScreenOrigin(msgObj.topleftOffset[0], msgObj.topleftOffset[1])
       ctx.display.setActualSize(msgObj.screenSizeCm[0], msgObj.screenSizeCm[1])
