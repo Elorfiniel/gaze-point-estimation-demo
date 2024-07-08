@@ -23,5 +23,6 @@ class SocketManager {
 
   closeSocket() {
     this.socket.close()
+    this.socket = undefined
   }
 }

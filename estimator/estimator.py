@@ -167,6 +167,7 @@ async def server_hello(websocket, config_path, record_mode):
 async def handle_message(message, websocket, camera_status, config_path, record_path):
   logging.debug(f'websocket server received message - {message}')
 
+  should_exit = False
   message_obj = json.loads(message)
 
   # On receving "open-cam", start the camera process
@@ -198,12 +199,17 @@ async def handle_message(message, websocket, camera_status, config_path, record_
 
   # On receiving "kill-cam", terminate the camera process
   if message_obj['opcode'] == 'kill-cam':
-    camera_status['camera-kill'].set()
-    camera_status['camera-proc'].join()
+    if camera_status.get('camera-proc', None):
+      camera_status['camera-kill'].set()
+      camera_status['camera-proc'].join()
+
     camera_status.clear()
 
-    # Send "camera-off" to notify the client
-    await websocket_send_json(websocket, { 'status': 'camera-off' })
+    if not message_obj['hard']:
+      # Send "camera-off" to notify the client
+      await websocket_send_json(websocket, { 'status': 'camera-off' })
+
+    should_exit = True
 
   # On receiving "save-gaze", enqueue label in the save task queue
   if message_obj['opcode'] == 'save-gaze':
@@ -214,6 +220,8 @@ async def handle_message(message, websocket, camera_status, config_path, record_
       message_obj['label_x'],
       message_obj['label_y'],
     ))
+
+  return should_exit
 
 async def broadcast_gaze(websocket, camera_status):
   if camera_status['gaze-ready'].is_set():
@@ -238,8 +246,9 @@ async def server_process(websocket, config_path, record_mode, record_path):
   await server_hello(websocket, config_path, record_mode)
 
   camera_status = {}
+  server_alive = True
 
-  while True:
+  while server_alive:
     try:  # Wait for the message until a timeout occurs
       message = await asyncio.wait_for(websocket.recv(), timeout=0.01)
     except websockets.ConnectionClosed:
@@ -248,7 +257,10 @@ async def server_process(websocket, config_path, record_mode, record_path):
       message = None
 
     if message is not None:
-      await handle_message(message, websocket, camera_status, config_path, record_path)
+      should_exit = await handle_message(
+        message, websocket, camera_status, config_path, record_path,
+      )
+      server_alive = not should_exit
 
     if camera_status.get('camera-proc', None):
       await broadcast_gaze(websocket, camera_status)

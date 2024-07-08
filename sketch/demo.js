@@ -528,7 +528,7 @@ function actOnSwitchToGame(ctx) {
 }
 
 function actOnSwitchToClose(ctx) {
-  ctx.socket.sendMessage({ opcode: 'kill-cam' })
+  ctx.socket.sendMessage({ opcode: 'kill-cam', hard: false })
 }
 
 function actOnSwitchToOutro(ctx) {
@@ -571,4 +571,15 @@ function draw() {
   actOnStateUpdate(context)
   drawGameStates(context)
   switchGameState(context)
+}
+
+
+/**
+ * Close socket on page closing or reloading gracefully
+ */
+window.onbeforeunload = (e) => {
+  if (context.socket !== undefined) {
+    context.socket.sendMessage({ opcode: 'kill-cam', hard: true })
+    context.socket.closeSocket()
+  }
 }
