@@ -427,7 +427,7 @@ class GameSystem {
   tryGenerateEnemy(probability, maxTrials) {
     if (Math.random() < probability) {
 
-      let newEnemy = new Enemy()
+      let newEnemy = undefined
 
       trailLoop:
       for (let i = 0; i < maxTrials; i++) {
