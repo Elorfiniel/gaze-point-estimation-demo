@@ -347,7 +347,7 @@ class GameSystem {
     this.enemyKilled = 0
     this.maxEnemies = 1
     this.autoAimRecords = []
-    this.autoAimRange = 56
+    this.autoAimRange = 60
     this.autoAimAngle = HALF_PI / 10
     this.autoEnemyLockDelay = 100
     this.enemyLockedConfidence = 0.8
