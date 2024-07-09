@@ -343,6 +343,7 @@ class GameSystem {
     this.cannonRotDelta = 0.05
 
     this.enemies = []
+    this.dead_enemies = []
     this.enemyKilled = 0
     this.maxEnemies = 1
     this.autoAimRecords = []
@@ -356,11 +357,11 @@ class GameSystem {
     this.explosionMaxDensity = 42
   }
 
-  judgeAutoAim(enemy, aimX, aimY, w_angle = 1.0) {
-    const radius = sqrt(pow(enemy.x - aimX, 2) + pow(enemy.y - aimY, 2))
+  judgeAutoAim(targetX, targetY, aimX, aimY, w_angle = 1.0) {
+    const radius = sqrt(pow(targetX - aimX, 2) + pow(targetY - aimY, 2))
     const fieldAimed = radius < this.autoAimRange
 
-    const enemyAng = this.cannonTargetRotate(enemy.x, enemy.y)
+    const enemyAng = this.cannonTargetRotate(targetX, targetY)
     const aimAng = this.cannonTargetRotate(aimX, aimY)
     const sectorAimed = abs(aimAng - enemyAng) < w_angle * this.autoAimAngle
 
@@ -423,7 +424,7 @@ class GameSystem {
     return undefined
   }
 
-  tryGenerateEnemy(probability, maxTrials) {
+  tryGenerateEnemy(probability, maxTrials, avoid_corpse = false) {
     if (Math.random() < probability) {
 
       let newEnemy = undefined
@@ -433,8 +434,15 @@ class GameSystem {
         let tempEnemy = new Enemy()
 
         for (let enemy of this.enemies) {
-          const judge = this.judgeAutoAim(enemy, tempEnemy.endX, tempEnemy.endY, 1.6)
+          const judge = this.judgeAutoAim(enemy.endX, enemy.endY, tempEnemy.endX, tempEnemy.endY, 1.6)
           if (judge == true) continue trailLoop
+        }
+
+        if (avoid_corpse == true) {
+          for (let corpse of this.dead_enemies) {
+            const judge = this.judgeAutoAim(corpse.endX, corpse.endY, tempEnemy.endX, tempEnemy.endY, 2.0)
+            if (judge == true) continue trailLoop
+          }
         }
 
         newEnemy = tempEnemy
@@ -449,7 +457,7 @@ class GameSystem {
 
   enemyUpdate(aimX, aimY) {
     for (let enemy of this.enemies) {
-      const autoAimed = this.judgeAutoAim(enemy, aimX, aimY)
+      const autoAimed = this.judgeAutoAim(enemy.x, enemy.y, aimX, aimY)
 
       let aimed = this.searchAimed(enemy)
       if (aimed !== undefined) {
@@ -464,7 +472,7 @@ class GameSystem {
     }
 
     if (this.enemies.length < this.maxEnemies) {
-      this.tryGenerateEnemy(0.2, 4)
+      this.tryGenerateEnemy(0.2, 4, true)
     }
   }
 
@@ -515,15 +523,18 @@ class GameSystem {
     }
 
     this.autoAimRecords = nextAimRecords
-    this.enemies = this.enemies.filter((e) => {
-      for (let enemy of destroyedEnemies) {
-        if (e === enemy) return false
-      }
+    if (destroyedEnemies.length > 0) {
+      this.enemies = this.enemies.filter((e) => {
+        for (let enemy of destroyedEnemies) {
+          if (e === enemy) return false
+        }
 
-      return true
-    })
+        return true
+      })
 
-    this.enemyKilled += destroyedEnemies.length
+      this.dead_enemies = destroyedEnemies
+      this.enemyKilled += destroyedEnemies.length
+    }
   }
 
   draw(aimX, aimY) {
