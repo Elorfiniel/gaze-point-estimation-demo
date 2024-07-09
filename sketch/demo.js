@@ -434,9 +434,9 @@ function drawWhenGame(ctx) {
   if (gazeNew !== undefined && gazeNew == true) {
     ctx.values.add('gaze-new', false)
 
-    if (recordMode == true && ctx.game.autoAimed.length > 0) {
+    if (recordMode == true && ctx.game.autoAimRecords.length > 0) {
       // TODO: resolve for multiple aimed enemies
-      const enemy = ctx.game.autoAimed[0].trackedEnemy
+      const enemy = ctx.game.autoAimRecords[0].trackedEnemy
       const screenXY = ctx.display.canvas2screen(enemy.x, enemy.y, xUpdate, yUpdate)
       const actualXY = ctx.display.screen2actual(screenXY[0], screenXY[1])
 
