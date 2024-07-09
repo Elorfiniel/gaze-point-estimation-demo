@@ -356,14 +356,13 @@ class GameSystem {
     this.explosionMaxDensity = 42
   }
 
-  judgeAutoAim(enemy, aimX, aimY, expand=1.0) {
-    // TODO: adjust judgement for auto aimed target
+  judgeAutoAim(enemy, aimX, aimY, w_angle = 1.0) {
     const radius = sqrt(pow(enemy.x - aimX, 2) + pow(enemy.y - aimY, 2))
     const fieldAimed = radius < this.autoAimRange
 
     const enemyAng = this.cannonTargetRotate(enemy.x, enemy.y)
     const aimAng = this.cannonTargetRotate(aimX, aimY)
-    const sectorAimed = expand * abs(aimAng - enemyAng) < this.autoAimAngle
+    const sectorAimed = abs(aimAng - enemyAng) < w_angle * this.autoAimAngle
 
     return fieldAimed || sectorAimed
   }
@@ -434,7 +433,7 @@ class GameSystem {
         let tempEnemy = new Enemy()
 
         for (let enemy of this.enemies) {
-          const judge = this.judgeAutoAim(enemy, tempEnemy.endX, tempEnemy.endY)
+          const judge = this.judgeAutoAim(enemy, tempEnemy.endX, tempEnemy.endY, 1.6)
           if (judge == true) continue trailLoop
         }
 
