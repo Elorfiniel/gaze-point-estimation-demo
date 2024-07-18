@@ -64,8 +64,7 @@ class Enemy {
 }
 
 class AutoAimRecord {
-  constructor(enemy, lockDelay) {
-    this.trackedEnemy = enemy
+  constructor(lockDelay) {
     this.trackingValue = 0
     this.lockDelay = lockDelay
   }
@@ -75,16 +74,16 @@ class AutoAimRecord {
     this.trackingValue = constrain(this.trackingValue, 0, this.lockDelay)
   }
 
-  lockedConfidence() {
+  lockedFaith() {
     return this.trackingValue / this.lockDelay
   }
 
-  draw(lockedConfidence) {
+  draw(x, y, lockedFaith) {
     push()
 
-    const deltaC = 1 - this.lockedConfidence() / lockedConfidence
+    const deltaC = 1 - this.lockedFaith() / lockedFaith
 
-    translate(this.trackedEnemy.x, this.trackedEnemy.y)
+    translate(x, y)
 
     noFill()
     stroke(169, 29, 58, (1 - deltaC) * 240 + 16)
@@ -244,12 +243,8 @@ class ExplosionFragments {
   randomColor() {
     const rnd = Math.random()
 
-    if (rnd < 0.6) {
-      return [221, 230, 237]
-    }
-    if (rnd < 0.8) {
-      return [39, 55, 77]
-    }
+    if (rnd < 0.6) return [221, 230, 237]
+    if (rnd < 0.8) return [39, 55, 77]
 
     return [169, 29, 58]
   }
@@ -342,15 +337,15 @@ class GameSystem {
     this.cannonCurrAngle = HALF_PI
     this.cannonRotDelta = 0.05
 
-    this.enemies = []
-    this.dead_enemies = []
+    this.activeEnemy = undefined
+    this.enemyCorpse = undefined
     this.enemyKilled = 0
-    this.maxEnemies = 1
-    this.autoAimRecords = []
+    this.autoAimRecord = undefined
     this.autoAimRange = 60
     this.autoAimAngle = HALF_PI / 10
-    this.autoEnemyLockDelay = 100
-    this.enemyLockedConfidence = 0.8
+    this.autoAimDelay = 160
+    this.autoAimSaveFaith = 0.20
+    this.autoAimKillFaith = 0.90
 
     this.explosions = []
     this.explosionMinDensity = 28
@@ -368,8 +363,20 @@ class GameSystem {
     return fieldAimed || sectorAimed
   }
 
-  getEnemyKilled() {
+  getEnemyKilledCnt() {
     return this.enemyKilled
+  }
+
+  getEnemyAutoAimed() {
+    if (this.autoAimRecord !== undefined) {
+      const faith = this.autoAimRecord.lockedFaith()
+
+      if (faith >= this.autoAimSaveFaith) {
+        return this.activeEnemy
+      }
+    }
+
+    return undefined
   }
 
   cannonRotate() {
@@ -414,69 +421,69 @@ class GameSystem {
     this.cannonUpdateAngle(aimX, aimY)
   }
 
-  searchAimed(enemy) {
-    for (let aim of this.autoAimRecords) {
-      if (aim.trackedEnemy === enemy) {
-        return aim
-      }
-    }
-
-    return undefined
-  }
-
-  tryGenerateEnemy(probability, maxTrials, avoid_corpse = false) {
+  enemyCreate(probability, maxTrials, avoid_corpse = false) {
     if (Math.random() < probability) {
 
       let newEnemy = undefined
 
-      trailLoop:
-      for (let i = 0; i < maxTrials; i++) {
+      for (let i = 0; newEnemy === undefined && i < maxTrials; i++) {
         let tempEnemy = new Enemy()
 
-        for (let enemy of this.enemies) {
-          const judge = this.judgeAutoAim(enemy.endX, enemy.endY, tempEnemy.endX, tempEnemy.endY, 1.6)
-          if (judge == true) continue trailLoop
-        }
-
-        if (avoid_corpse == true) {
-          for (let corpse of this.dead_enemies) {
-            const judge = this.judgeAutoAim(corpse.endX, corpse.endY, tempEnemy.endX, tempEnemy.endY, 2.0)
-            if (judge == true) continue trailLoop
-          }
+        if (avoid_corpse == true && this.enemyCorpse !== undefined) {
+          const judge = this.judgeAutoAim(
+            this.enemyCorpse.endX, this.enemyCorpse.endY,
+            tempEnemy.endX, tempEnemy.endY, 2.0
+          )
+          if (judge == true) continue
         }
 
         newEnemy = tempEnemy
-        break trailLoop
       }
 
-      if (newEnemy !== undefined) {
-        this.enemies.push(newEnemy)
-      }
+      if (newEnemy !== undefined) this.activeEnemy = newEnemy
     }
   }
 
   enemyUpdate(aimX, aimY) {
-    for (let enemy of this.enemies) {
-      const autoAimed = this.judgeAutoAim(enemy.x, enemy.y, aimX, aimY)
+    if (this.activeEnemy !== undefined) {
+      const judge = this.judgeAutoAim(this.activeEnemy.x, this.activeEnemy.y, aimX, aimY)
 
-      let aimed = this.searchAimed(enemy)
-      if (aimed !== undefined) {
-        aimed.markAimed(autoAimed)
-      } else if (autoAimed) {
-        let newAimed = new AutoAimRecord(enemy, this.autoEnemyLockDelay)
-        newAimed.markAimed(true)
-        this.autoAimRecords.push(newAimed)
+      if (judge == true && this.autoAimRecord === undefined) {
+        this.autoAimRecord = new AutoAimRecord(this.autoAimDelay)
       }
 
-      enemy.update()
+      if (this.autoAimRecord !== undefined) {
+        this.autoAimRecord.markAimed(judge)
+      }
+
+      this.activeEnemy.update()
+    } else {
+      this.enemyCreate(0.2, 4, true)
     }
 
-    if (this.enemies.length < this.maxEnemies) {
-      this.tryGenerateEnemy(0.2, 4, true)
+    if (this.autoAimRecord !== undefined) {
+      const faith = this.autoAimRecord.lockedFaith()
+
+      if (faith >= this.autoAimKillFaith) {
+        const hitRadius = sqrt(
+          pow(this.cannon.x - this.activeEnemy.x, 2) +
+          pow(this.cannon.y - this.activeEnemy.y, 2)
+        )
+        this.cannon.openFire(hitRadius, this.autoAimAngle)
+        this.explosionCreate(this.activeEnemy.x, this.activeEnemy.y)
+
+        this.enemyCorpse = this.activeEnemy
+        this.enemyKilled += 1
+
+        this.activeEnemy = undefined
+        this.autoAimRecord = undefined
+      }
+
+      if (faith <= 0) this.autoAimRecord = undefined
     }
   }
 
-  addExplosion(x, y) {
+  explosionCreate(x, y) {
     const maxFragments = round(
       Math.random() * (this.explosionMaxDensity - this.explosionMinDensity)
     ) + this.explosionMinDensity
@@ -485,7 +492,7 @@ class GameSystem {
     this.explosions.push(explosion)
   }
 
-  explosionsUpdate() {
+  explosionUpdate() {
     let nextExplosion = []
 
     for (let explosion of this.explosions) {
@@ -499,59 +506,21 @@ class GameSystem {
     this.explosions = nextExplosion
   }
 
-  destroyKilledEnemies() {
-    let destroyedEnemies = []
-    let nextAimRecords = []
-
-    for (let aim of this.autoAimRecords) {
-      const conf = aim.lockedConfidence()
-
-      if (conf >= this.enemyLockedConfidence) {
-        const enemy = aim.trackedEnemy
-        destroyedEnemies.push(enemy)
-
-        const hitRadius = sqrt(
-          pow(this.cannon.x - enemy.x, 2) +
-          pow(this.cannon.y - enemy.y, 2)
-        )
-        this.cannon.openFire(hitRadius, this.autoAimAngle)
-
-        this.addExplosion(enemy.x, enemy.y)
-      } else if (conf > 0) {
-        nextAimRecords.push(aim)
-      }
-    }
-
-    this.autoAimRecords = nextAimRecords
-    if (destroyedEnemies.length > 0) {
-      this.enemies = this.enemies.filter((e) => {
-        for (let enemy of destroyedEnemies) {
-          if (e === enemy) return false
-        }
-
-        return true
-      })
-
-      this.dead_enemies = destroyedEnemies
-      this.enemyKilled += destroyedEnemies.length
-    }
-  }
-
   draw(aimX, aimY) {
     push()
 
     this.cannon.draw(this.cannonRotate())
 
-    for (let enemy of this.enemies) {
-      enemy.draw()
+    if (this.activeEnemy !== undefined) {
+      this.activeEnemy.draw()
+
+      if (this.autoAimRecord !== undefined) {
+        this.autoAimRecord.draw(this.activeEnemy.x, this.activeEnemy.y, this.autoAimKillFaith)
+      }
     }
 
     for (let explosion of this.explosions) {
       explosion.draw()
-    }
-
-    for (let aim of this.autoAimRecords) {
-      aim.draw(this.enemyLockedConfidence)
     }
 
     pop()
@@ -560,7 +529,6 @@ class GameSystem {
   update(aimX, aimY) {
     this.cannonUpdate(aimX, aimY)
     this.enemyUpdate(aimX, aimY)
-    this.explosionsUpdate()
-    this.destroyKilledEnemies()
+    this.explosionUpdate()
   }
 }

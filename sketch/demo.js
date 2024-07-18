@@ -13,7 +13,7 @@ function createViewHelper(name, ctx, draw_fn = (c) => {}, update_fn = (c) => {})
   const view = new UiComponent(name, ctx, (c) => {
     push()
 
-    scale(ctx.values.get('ui-scale'))
+    scale(c.values.get('ui-scale'))
     draw_fn(c)
 
     pop()
@@ -26,41 +26,18 @@ function createViewHelper(name, ctx, draw_fn = (c) => {}, update_fn = (c) => {})
 /**
  * Initialize views for different game states.
  */
-function createGameViews(ctx) {
-  // Scale properly so that the ui components can adapt to different screen size
-  const scaling = windowWidth / 1528
-  context.values.add('ui-scale', scaling)
-
-  // Specifically, all components are placed in a 16:9 area centered on screen
-  const idealHeight = windowWidth / 16 * 9
-  const uiShift = (windowHeight - idealHeight) / 2
-  context.values.add('ui-shift', uiShift / scaling)
-
-  const introViews = createViewsForIntro(ctx)
-  ctx.values.add('intro-views', introViews)
-  const oncamViews = createViewsForOncam(ctx)
-  ctx.values.add('oncam-views', oncamViews)
-  const gameViews = createViewsForGame(ctx)
-  ctx.values.add('game-views', gameViews)
-  const closeViews = createViewsForClose(ctx)
-  ctx.values.add('close-views', closeViews)
-  const outroViews = createViewsForOutro(ctx)
-  ctx.values.add('outro-views', outroViews)
-}
-
 function createViewsForIntro(ctx) {
-  const recordMode = ctx.values.get('record-mode')
-
   createViewHelper(
     'game-title',
     ctx,
     (c) => {
+      const recordMode = c.values.get('record-mode')
+      const uiShift = c.values.get('ui-shift')
+
       let titleContent = '深  空  防  御'
       if (recordMode == true) {
         titleContent = '深  空  防  御  [  采  集  ]'
       }
-
-      const uiShift = ctx.values.get('ui-shift')
 
       noFill()
       stroke(39, 55, 77)
@@ -75,6 +52,9 @@ function createViewsForIntro(ctx) {
     'game-warn',
     ctx,
     (c) => {
+      const recordMode = c.values.get('record-mode')
+      const uiShift = c.values.get('ui-shift')
+
       const warnIntro = '[  摄  像  头  调  用  说  明  ]'
       const warnContent = '请注意，本游戏在运行过程中需要调用摄像头拍摄您的面部图像。' +
         '当您点击 “开始游戏” 按钮，即表示您知晓、理解并允许我们捕获您的面部图像。' +
@@ -86,8 +66,6 @@ function createViewsForIntro(ctx) {
         noteContent = '欢迎使用 “视点采集模式”，请您知晓，我们  “将会” 保存' +
           '您的面部图像，用来不断改进本游戏的 “视点估计” 性能。'
       }
-
-      const uiShift = ctx.values.get('ui-shift')
 
       noFill()
       textAlign(CENTER, TOP)
@@ -116,13 +94,12 @@ function createViewsForIntro(ctx) {
     'start-button',
     ctx,
     (c) => {
+      const uiShift = c.values.get('ui-shift')
+      const scaling = c.values.get('ui-scale')
+
       const buttonText = '开  始  游  戏'
 
-      const uiShift = ctx.values.get('ui-shift')
-
       const checkMouse = (x, y) => {
-        const scaling = ctx.values.get('ui-scale')
-
         x = x / scaling
         y = y / scaling
 
@@ -134,11 +111,7 @@ function createViewsForIntro(ctx) {
       const onHover = checkMouse(mouseX, mouseY)
 
       noFill()
-      if (onHover) {
-        stroke(169, 29, 58)
-      } else {
-        stroke(39, 55, 77)
-      }
+      onHover ? stroke(169, 29, 58) : stroke(39, 55, 77)
       strokeWeight(2)
       rectMode(CENTER)
       rect(764, 615.8 + uiShift, 200, 50)
@@ -150,9 +123,9 @@ function createViewsForIntro(ctx) {
 
       if (onHover && mouseIsPressed) {
         c.states.setFutureState(c.states.states.ONCAM)
-        ctx.values.add('init-outer-x', screenLeft)
-        ctx.values.add('init-outer-y', screenTop)
-        ctx.display.setViewportOffset(devMouseX - winMouseX, devMouseY - winMouseY)
+        c.values.add('init-outer-x', screenLeft)
+        c.values.add('init-outer-y', screenTop)
+        c.display.setViewportOffset(devMouseX - winMouseX, devMouseY - winMouseY)
       }
     },
   )
@@ -167,7 +140,7 @@ function createViewsForOncam(ctx) {
     (c) => {
       const messageText = '[  请  等  待  摄  像  头  开  启  ]'
 
-      const uiShift = ctx.values.get('ui-shift')
+      const uiShift = c.values.get('ui-shift')
 
       noFill()
       stroke(169, 29, 58)
@@ -186,14 +159,11 @@ function createViewsForGame(ctx) {
     'count-down',
     ctx,
     (c) => {
-      const uiShift = ctx.values.get('ui-shift')
-
+      const uiShift = c.values.get('ui-shift')
       const maxTime = c.values.get('game-time')
-
       const start = c.values.get('game-start')
-      const now = new Date()
 
-      const timePast = Math.floor((now.getTime() - start.getTime()) / 1000)
+      const timePast = Math.floor(((new Date()).getTime() - start.getTime()) / 1000)
 
       let timeRemain = maxTime - timePast
       timeRemain = timeRemain < 0 ? 0 : timeRemain
@@ -217,9 +187,9 @@ function createViewsForGame(ctx) {
     'score-board',
     ctx,
     (c) => {
-      const uiShift = ctx.values.get('ui-shift')
+      const uiShift = c.values.get('ui-shift')
 
-      const scoreText = `击落敌机：${c.game.getEnemyKilled()}`
+      const scoreText = `击落敌机：${c.game.getEnemyKilledCnt()}`
 
       noFill()
       stroke(39, 55, 77)
@@ -240,7 +210,7 @@ function createViewsForClose(ctx) {
     (c) => {
       const messageText = '[  请  等  待  摄  像  头  关  闭  ]'
 
-      const uiShift = ctx.values.get('ui-shift')
+      const uiShift = c.values.get('ui-shift')
 
       noFill()
       stroke(169, 29, 58)
@@ -259,10 +229,10 @@ function createViewsForOutro(ctx) {
     'congrats',
     ctx,
     (c) => {
-      const uiShift = ctx.values.get('ui-shift')
+      const uiShift = c.values.get('ui-shift')
 
       const congratsText = 'C  O  N  G  R  A  T  U  L  A  T  I  O  N'
-      const scoreText = `您总共击落敌机 ${c.game.getEnemyKilled()} 架`
+      const scoreText = `您总共击落敌机 ${c.game.getEnemyKilledCnt()} 架`
 
       noFill()
       stroke(169, 29, 58)
@@ -282,13 +252,12 @@ function createViewsForOutro(ctx) {
     'restart-button',
     ctx,
     (c) => {
-      const uiShift = ctx.values.get('ui-shift')
+      const uiShift = c.values.get('ui-shift')
+      const scaling = c.values.get('ui-scale')
 
       const buttonText = '重  新  开  始'
 
       const checkMouse = (x, y) => {
-        const scaling = ctx.values.get('ui-scale')
-
         x = x / scaling
         y = y / scaling
 
@@ -325,7 +294,8 @@ function createViewsForOutro(ctx) {
 
 
 /**
- * Handle socket messages.
+ * Configure socket behaviors on message received.
+ * Configure UI settings wrt the screen.
  */
 function configureSocket(ctx) {
   ctx.socket.setOnMessage((msgObj) => {
@@ -336,15 +306,13 @@ function configureSocket(ctx) {
       ctx.values.add('screen-size-px', msgObj.screenSizePx)
       ctx.values.add('screen-size-cm', msgObj.screenSizeCm)
 
-      ctx.values.add('record-mode', msgObj.recordMode)
-      if (msgObj.recordMode == true) {
-        const introViews = createViewsForIntro(ctx)
-        ctx.values.add('intro-views', introViews)
-      }
-
       ctx.display.setScreenOrigin(msgObj.topleftOffset[0], msgObj.topleftOffset[1])
       ctx.display.setActualSize(msgObj.screenSizeCm[0], msgObj.screenSizeCm[1])
       ctx.display.setScreenSize(screen.height, screen.width)
+
+      ctx.values.add('record-mode', msgObj.recordMode)
+      const gameTime = msgObj.recordMode ? 90 : 60
+      ctx.values.add('game-time', gameTime)
     }
 
     if (msgObj.status == 'camera-on') {
@@ -360,6 +328,17 @@ function configureSocket(ctx) {
       ctx.values.add('gaze-new', true)
     }
   })
+}
+
+function configureScreen(ctx) {
+  // Scale properly so that the ui components can adapt to different screen size
+  const scaling = windowWidth / 1528
+  context.values.add('ui-scale', scaling)
+
+  // Specifically, all components are placed in a 16:9 area centered on screen
+  const idealHeight = windowWidth / 16 * 9
+  const uiShift = (windowHeight - idealHeight) / 2
+  context.values.add('ui-shift', uiShift / scaling)
 }
 
 
@@ -431,23 +410,27 @@ function drawWhenGame(ctx) {
     gazeXY = ctx.display.screen2canvas(screenXY[0], screenXY[1], xUpdate, yUpdate)
     ctx.game.draw(gazeXY[0], gazeXY[1])
   }
-  if (gazeNew !== undefined && gazeNew == true) {
-    ctx.values.add('gaze-new', false)
+  if (gazeNew == true) {
+    /**
+     * To prevent multiple aimed enemies, the total number of aimed enemies is limited
+     * to "one" regardless of the status of record mode.
+     */
+    if (recordMode == true) {
+      const enemy = ctx.game.getEnemyAutoAimed()
 
-    if (recordMode == true && ctx.game.autoAimRecords.length > 0) {
-      // TODO: resolve for multiple aimed enemies
-      const enemy = ctx.game.autoAimRecords[0].trackedEnemy
-      const screenXY = ctx.display.canvas2screen(enemy.x, enemy.y, xUpdate, yUpdate)
-      const actualXY = ctx.display.screen2actual(screenXY[0], screenXY[1])
+      if (enemy !== undefined) {
+        const screenXY = ctx.display.canvas2screen(enemy.x, enemy.y, xUpdate, yUpdate)
+        const actualXY = ctx.display.screen2actual(screenXY[0], screenXY[1])
 
-      ctx.socket.sendMessage({
-        opcode: 'save-gaze',
-        tid: gaze[2],
-        gaze_x: gaze[0],
-        gaze_y: gaze[1],
-        label_x: actualXY[0],
-        label_y: actualXY[1],
-      })
+        ctx.socket.sendMessage({
+          opcode: 'save-gaze',
+          tid: gaze[2],
+          gaze_x: gaze[0],
+          gaze_y: gaze[1],
+          label_x: actualXY[0],
+          label_y: actualXY[1],
+        })
+      }
     }
   }
 
@@ -561,10 +544,19 @@ function setup() {
 
   textFont(context.assets.get('font'))
 
-  createGameViews(context)
+  configureScreen(context)
   configureSocket(context)
 
-  context.values.add('game-time', 60)
+  const introViews = createViewsForIntro(context)
+  context.values.add('intro-views', introViews)
+  const oncamViews = createViewsForOncam(context)
+  context.values.add('oncam-views', oncamViews)
+  const gameViews = createViewsForGame(context)
+  context.values.add('game-views', gameViews)
+  const closeViews = createViewsForClose(context)
+  context.values.add('close-views', closeViews)
+  const outroViews = createViewsForOutro(context)
+  context.values.add('outro-views', outroViews)
 }
 
 function draw() {
