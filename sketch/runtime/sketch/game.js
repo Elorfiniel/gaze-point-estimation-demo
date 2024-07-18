@@ -1,3 +1,21 @@
+/**
+ * Helper functions.
+ */
+function calculateRotation(x, y, cx, cy) {
+  const ax = x - cx
+  const ay = y - cy
+  const al = sqrt(ax * ax + ay * ay)
+
+  const sign = Math.sign(ay) || Math.sign(ax)
+  let ang = acos(ax / al) * sign
+
+  return ang
+}
+
+
+/**
+ * Class definitions.
+ */
 class Enemy {
   constructor() {
     const minX = 0.12 * windowWidth
@@ -69,11 +87,6 @@ class AutoAimRecord {
     this.lockDelay = lockDelay
   }
 
-  markAimed(isAimed) {
-    this.trackingValue += isAimed ? 1 : -1
-    this.trackingValue = constrain(this.trackingValue, 0, this.lockDelay)
-  }
-
   lockedFaith() {
     return this.trackingValue / this.lockDelay
   }
@@ -99,7 +112,127 @@ class AutoAimRecord {
 
     pop()
   }
+
+  update(isAimed) {
+    this.trackingValue += isAimed ? 1 : -1
+    this.trackingValue = constrain(this.trackingValue, 0, this.lockDelay)
+  }
 }
+
+class SuperAimRecord {
+  constructor() {
+
+  }
+
+  draw(x, y) {
+
+  }
+
+  update() {
+
+  }
+}
+
+class AimingSystem {
+  constructor(
+    originX, originY,
+    autoAimRange, autoAimAngle, autoAimDelay,
+    autoAimSaveFaith, autoAimKillFaith
+  ) {
+    this.aimRecord = undefined
+
+    this.originX = originX
+    this.originY = originY
+
+    this.autoAimRange = autoAimRange
+    this.autoAimAngle = autoAimAngle
+    this.autoAimDelay = autoAimDelay
+    this.autoAimSaveFaith = autoAimSaveFaith
+    this.autoAimKillFaith = autoAimKillFaith
+
+    // TODO: add support for super aiming
+    this.superAimParams = undefined
+  }
+
+  switchSystem(judge, spacebar) {
+    if (this.aimRecord === undefined) {
+      if (spacebar == true) {
+        // TODO: add support for super aiming
+      } else if (judge == true) {
+        this.aimRecord = new AutoAimRecord(this.autoAimDelay)
+      }
+    } else if (this.aimRecord instanceof AutoAimRecord && spacebar == true) {
+      // TODO: add support for super aiming
+    }
+  }
+
+  judgeAutoAim(targetX, targetY, aimX, aimY, w_angle = 1.0) {
+    const radius = sqrt(pow(targetX - aimX, 2) + pow(targetY - aimY, 2))
+    const fieldAimed = radius < this.autoAimRange
+
+    const enemyAng = calculateRotation(targetX, targetY, this.originX, this.originY)
+    const aimAng = calculateRotation(aimX, aimY, this.originX, this.originY)
+    const sectorAimed = abs(aimAng - enemyAng) < w_angle * this.autoAimAngle
+
+    return fieldAimed || sectorAimed
+  }
+
+  isEnemyAimed() {
+    let enemyAimed = false
+
+    if (this.aimRecord !== undefined) {
+      if (this.aimRecord instanceof AutoAimRecord) {
+        const faith = this.aimRecord.lockedFaith()
+        if (faith >= this.autoAimSaveFaith) {
+          enemyAimed = true
+        }
+      }
+
+      if (this.aimRecord instanceof SuperAimRecord) {
+        // TODO: add support for super aiming
+      }
+    }
+
+    return enemyAimed
+  }
+
+  draw(activeEnemy) {
+    if (this.aimRecord !== undefined) {
+      if (this.aimRecord instanceof AutoAimRecord) {
+        this.aimRecord.draw(activeEnemy.x, activeEnemy.y, this.autoAimKillFaith)
+      }
+
+      if (this.aimRecord instanceof SuperAimRecord) {
+        // TODO: add support for super aiming
+      }
+    }
+  }
+
+  update(judge, spacebar) {
+    let killEnemy = false
+
+    if (this.aimRecord !== undefined) {
+      if (this.aimRecord instanceof AutoAimRecord) {
+        this.aimRecord.update(judge)
+
+        const faith = this.aimRecord.lockedFaith()
+
+        if (faith >= this.autoAimKillFaith) {
+          killEnemy = true
+          this.aimRecord = undefined
+        }
+        if (faith <= 0) this.aimRecord = undefined
+      }
+
+      if (this.aimRecord instanceof SuperAimRecord) {
+        // TODO: add support for super aiming
+      }
+    }
+
+    return killEnemy
+  }
+}
+
 
 class Laser {
   constructor(hitRadius, scatterAngle) {
@@ -340,43 +473,33 @@ class GameSystem {
     this.activeEnemy = undefined
     this.enemyCorpse = undefined
     this.enemyKilled = 0
-    this.autoAimRecord = undefined
+
     this.autoAimRange = 60
     this.autoAimAngle = HALF_PI / 10
     this.autoAimDelay = 160
     this.autoAimSaveFaith = 0.20
     this.autoAimKillFaith = 0.90
 
+    // TODO: add support for super aiming
+    this.superAimParams = undefined
+
     this.explosions = []
     this.explosionMinDensity = 28
     this.explosionMaxDensity = 42
+
+    this.aimingSystem = new AimingSystem(
+      this.cannon.x, this.cannon.y,
+      this.autoAimRange, this.autoAimAngle, this.autoAimDelay,
+      this.autoAimSaveFaith, this.autoAimKillFaith
+    )
   }
 
-  judgeAutoAim(targetX, targetY, aimX, aimY, w_angle = 1.0) {
-    const radius = sqrt(pow(targetX - aimX, 2) + pow(targetY - aimY, 2))
-    const fieldAimed = radius < this.autoAimRange
-
-    const enemyAng = this.cannonTargetRotate(targetX, targetY)
-    const aimAng = this.cannonTargetRotate(aimX, aimY)
-    const sectorAimed = abs(aimAng - enemyAng) < w_angle * this.autoAimAngle
-
-    return fieldAimed || sectorAimed
-  }
-
-  getEnemyKilledCnt() {
+  getGameScore() {
     return this.enemyKilled
   }
 
-  getEnemyAutoAimed() {
-    if (this.autoAimRecord !== undefined) {
-      const faith = this.autoAimRecord.lockedFaith()
-
-      if (faith >= this.autoAimSaveFaith) {
-        return this.activeEnemy
-      }
-    }
-
-    return undefined
+  getAimedEnemy() {
+    return this.aimingSystem.isEnemyAimed() ? this.activeEnemy : undefined
   }
 
   cannonRotate() {
@@ -384,14 +507,7 @@ class GameSystem {
   }
 
   cannonTargetRotate(aimX, aimY) {
-    const ax = aimX - this.cannon.x
-    const ay = aimY - this.cannon.y
-    const al = sqrt(ax * ax + ay * ay)
-
-    const sign = Math.sign(ay) || Math.sign(ax)
-    let ang = acos(ax / al) * sign
-
-    return ang
+    return calculateRotation(aimX, aimY, this.cannon.x, this.cannon.y)
   }
 
   cannonDeltaRotate(aimX, aimY) {
@@ -430,7 +546,7 @@ class GameSystem {
         let tempEnemy = new Enemy()
 
         if (avoid_corpse == true && this.enemyCorpse !== undefined) {
-          const judge = this.judgeAutoAim(
+          const judge = this.aimingSystem.judgeAutoAim(
             this.enemyCorpse.endX, this.enemyCorpse.endY,
             tempEnemy.endX, tempEnemy.endY, 2.0
           )
@@ -444,27 +560,16 @@ class GameSystem {
     }
   }
 
-  enemyUpdate(aimX, aimY) {
+  enemyUpdate(aimX, aimY, spacebar) {
     if (this.activeEnemy !== undefined) {
-      const judge = this.judgeAutoAim(this.activeEnemy.x, this.activeEnemy.y, aimX, aimY)
+      const judge = this.aimingSystem.judgeAutoAim(
+        this.activeEnemy.x, this.activeEnemy.y, aimX, aimY
+      )
 
-      if (judge == true && this.autoAimRecord === undefined) {
-        this.autoAimRecord = new AutoAimRecord(this.autoAimDelay)
-      }
+      this.aimingSystem.switchSystem(judge, spacebar)
 
-      if (this.autoAimRecord !== undefined) {
-        this.autoAimRecord.markAimed(judge)
-      }
-
-      this.activeEnemy.update()
-    } else {
-      this.enemyCreate(0.2, 4, true)
-    }
-
-    if (this.autoAimRecord !== undefined) {
-      const faith = this.autoAimRecord.lockedFaith()
-
-      if (faith >= this.autoAimKillFaith) {
+      const killEnemy = this.aimingSystem.update(judge, spacebar)
+      if (killEnemy == true) {
         const hitRadius = sqrt(
           pow(this.cannon.x - this.activeEnemy.x, 2) +
           pow(this.cannon.y - this.activeEnemy.y, 2)
@@ -474,12 +579,12 @@ class GameSystem {
 
         this.enemyCorpse = this.activeEnemy
         this.enemyKilled += 1
-
         this.activeEnemy = undefined
-        this.autoAimRecord = undefined
+      } else {
+        this.activeEnemy.update()
       }
-
-      if (faith <= 0) this.autoAimRecord = undefined
+    } else {
+      this.enemyCreate(0.2, 4, true)
     }
   }
 
@@ -506,17 +611,14 @@ class GameSystem {
     this.explosions = nextExplosion
   }
 
-  draw(aimX, aimY) {
+  draw(aimX, aimY, spacebar = false) {
     push()
 
     this.cannon.draw(this.cannonRotate())
 
     if (this.activeEnemy !== undefined) {
       this.activeEnemy.draw()
-
-      if (this.autoAimRecord !== undefined) {
-        this.autoAimRecord.draw(this.activeEnemy.x, this.activeEnemy.y, this.autoAimKillFaith)
-      }
+      this.aimingSystem.draw(this.activeEnemy)
     }
 
     for (let explosion of this.explosions) {
@@ -526,9 +628,9 @@ class GameSystem {
     pop()
   }
 
-  update(aimX, aimY) {
+  update(aimX, aimY, spacebar = false) {
     this.cannonUpdate(aimX, aimY)
-    this.enemyUpdate(aimX, aimY)
+    this.enemyUpdate(aimX, aimY, spacebar)
     this.explosionUpdate()
   }
 }

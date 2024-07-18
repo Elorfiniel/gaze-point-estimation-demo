@@ -189,7 +189,7 @@ function createViewsForGame(ctx) {
     (c) => {
       const uiShift = c.values.get('ui-shift')
 
-      const scoreText = `击落敌机：${c.game.getEnemyKilledCnt()}`
+      const scoreText = `击落敌机：${c.game.getGameScore()}`
 
       noFill()
       stroke(39, 55, 77)
@@ -232,7 +232,7 @@ function createViewsForOutro(ctx) {
       const uiShift = c.values.get('ui-shift')
 
       const congratsText = 'C  O  N  G  R  A  T  U  L  A  T  I  O  N'
-      const scoreText = `您总共击落敌机 ${c.game.getEnemyKilledCnt()} 架`
+      const scoreText = `您总共击落敌机 ${c.game.getGameScore()} 架`
 
       noFill()
       stroke(169, 29, 58)
@@ -393,6 +393,7 @@ function drawWhenOncam(ctx) {
 
 function drawWhenGame(ctx) {
   let gazeXY = undefined
+  const spacebar = keyIsPressed && keyCode == 32
 
   const gameViews = ctx.values.get('game-views')
   const gaze = ctx.values.get('gaze')
@@ -408,15 +409,15 @@ function drawWhenGame(ctx) {
   if (gaze !== undefined) {
     const screenXY = ctx.display.actual2screen(gaze[0], gaze[1])
     gazeXY = ctx.display.screen2canvas(screenXY[0], screenXY[1], xUpdate, yUpdate)
-    ctx.game.draw(gazeXY[0], gazeXY[1])
+    ctx.game.draw(gazeXY[0], gazeXY[1], spacebar)
   }
-  if (gazeNew == true) {
+  if (gazeNew == true || false /* TODO: add support for super aiming */) {
     /**
      * To prevent multiple aimed enemies, the total number of aimed enemies is limited
      * to "one" regardless of the status of record mode.
      */
     if (recordMode == true) {
-      const enemy = ctx.game.getEnemyAutoAimed()
+      const enemy = ctx.game.getAimedEnemy()
 
       if (enemy !== undefined) {
         const screenXY = ctx.display.canvas2screen(enemy.x, enemy.y, xUpdate, yUpdate)
@@ -438,7 +439,7 @@ function drawWhenGame(ctx) {
 
   ctx.space.update()
   if (gaze !== undefined) {
-    ctx.game.update(gazeXY[0], gazeXY[1])
+    ctx.game.update(gazeXY[0], gazeXY[1], spacebar)
   }
 }
 
