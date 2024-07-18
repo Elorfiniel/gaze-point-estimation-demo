@@ -120,16 +120,49 @@ class AutoAimRecord {
 }
 
 class SuperAimRecord {
-  constructor() {
+  constructor(lockDelay) {
+    this.trackingValue = 0
+    this.lockDelay = lockDelay
+  }
 
+  lockedFaith() {
+    return this.trackingValue / this.lockDelay
   }
 
   draw(x, y) {
+    push()
 
+    /**
+     * Use the following color gradient:
+     *   rgb(255, 191, 0) -> rgb(169, 29, 58)
+     *   hsl(45, 100, 50) -> hsl(10, 100, 33)
+     */
+
+    colorMode(HSL)
+
+    const ratio = this.lockedFaith()
+    const deltaC = ratio < 1 ? 1 - ratio : ratio - 1
+    const deltaC_2 = deltaC > 0 ? pow(deltaC, 0.32) : 0
+
+    translate(x, y)
+
+    noStroke()
+    fill(35 * deltaC_2 + 10, 100, 17 * deltaC_2 + 33)
+    circle(0, 0, (1 - deltaC) * 5 + 11)
+
+    noFill()
+    stroke(35 * deltaC_2 + 10, 100, 17 * deltaC_2 + 33)
+
+    strokeWeight((1 - deltaC) * 1.8 + 3.2)
+    circle(0, 0, deltaC * 22 + 18)
+
+    pop()
   }
 
-  update() {
-
+  update(isAimed) {
+    this.trackingValue += isAimed ? 1 : -1
+    const value = this.trackingValue % (2 * this.lockDelay)
+    this.trackingValue = constrain(value, 0, 2 * this.lockDelay)
   }
 }
 
