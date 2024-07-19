@@ -168,9 +168,9 @@ class SuperAimRecord {
 
 class AimingSystem {
   constructor(
-    originX, originY,
-    autoAimRange, autoAimAngle, autoAimDelay,
-    autoAimSaveFaith, autoAimKillFaith
+    originX, originY, autoAimRange, autoAimAngle,
+    autoAimDelay, autoAimSaveFaith, autoAimKillFaith,
+    superAimDelay, superAimSaveFaith, superAimKillFaith,
   ) {
     this.aimRecord = undefined
 
@@ -183,19 +183,20 @@ class AimingSystem {
     this.autoAimSaveFaith = autoAimSaveFaith
     this.autoAimKillFaith = autoAimKillFaith
 
-    // TODO: add support for super aiming
-    this.superAimParams = undefined
+    this.superAimDelay = superAimDelay
+    this.superAimSaveFaith = superAimSaveFaith
+    this.superAimKillFaith = superAimKillFaith
   }
 
   switchSystem(judge, spacebar) {
     if (this.aimRecord === undefined) {
       if (spacebar == true) {
-        // TODO: add support for super aiming
+        this.aimRecord = new SuperAimRecord(this.superAimDelay)
       } else if (judge == true) {
         this.aimRecord = new AutoAimRecord(this.autoAimDelay)
       }
     } else if (this.aimRecord instanceof AutoAimRecord && spacebar == true) {
-      // TODO: add support for super aiming
+      this.aimRecord = new SuperAimRecord(this.superAimDelay)
     }
   }
 
@@ -222,7 +223,10 @@ class AimingSystem {
       }
 
       if (this.aimRecord instanceof SuperAimRecord) {
-        // TODO: add support for super aiming
+        const faith = this.aimRecord.lockedFaith()
+        if (faith >= this.superAimSaveFaith) {
+          enemyAimed = true
+        }
       }
     }
 
@@ -236,7 +240,7 @@ class AimingSystem {
       }
 
       if (this.aimRecord instanceof SuperAimRecord) {
-        // TODO: add support for super aiming
+        this.aimRecord.draw(activeEnemy.x, activeEnemy.y)
       }
     }
   }
@@ -258,7 +262,19 @@ class AimingSystem {
       }
 
       if (this.aimRecord instanceof SuperAimRecord) {
-        // TODO: add support for super aiming
+        if (spacebar == false) {
+          const faith = this.aimRecord.lockedFaith()
+
+          if (faith >= this.superAimKillFaith &&
+            faith <= 2 - this.superAimKillFaith
+          ) {
+            killEnemy = true
+          }
+
+          this.aimRecord = undefined
+        } else {
+          this.aimRecord.update(true)
+        }
       }
     }
 
@@ -268,9 +284,10 @@ class AimingSystem {
 
 
 class Laser {
-  constructor(hitRadius, scatterAngle) {
+  constructor(cannonRotate, hitRadius, scatterAngle) {
     this.size = sqrt(pow(windowWidth, 2) + pow(windowHeight, 2))
 
+    this.rotate = cannonRotate
     this.radius = hitRadius
     this.angle = scatterAngle
 
@@ -283,6 +300,8 @@ class Laser {
 
   draw() {
     push()
+
+    rotate(this.rotate)
 
     noFill()
     stroke(169, 29, 58)
@@ -326,12 +345,12 @@ class Cannon {
     circle(0, 0, 52)
     circle(0, 98, 50)
 
-    rotate(rot)
-
     // Fire
     for (let laser of this.lasers) {
       laser.draw()
     }
+
+    rotate(rot)
 
     // Weapons
     fill(39, 55, 77)
@@ -362,8 +381,8 @@ class Cannon {
     pop()
   }
 
-  openFire(hitRadius, scatterAngle) {
-    const laser = new Laser(hitRadius, scatterAngle)
+  openFire(cannonRotate, hitRadius, scatterAngle) {
+    const laser = new Laser(cannonRotate, hitRadius, scatterAngle)
     this.lasers.push(laser)
   }
 
@@ -509,21 +528,26 @@ class GameSystem {
 
     this.autoAimRange = 60
     this.autoAimAngle = HALF_PI / 10
-    this.autoAimDelay = 160
+    this.autoAimDelay = 120
     this.autoAimSaveFaith = 0.20
     this.autoAimKillFaith = 0.90
 
-    // TODO: add support for super aiming
-    this.superAimParams = undefined
+    this.superAimDelay = 120
+    this.superAimSaveFaith = 0.40
+    this.superAimKillFaith = 0.90
 
     this.explosions = []
     this.explosionMinDensity = 28
     this.explosionMaxDensity = 42
 
+    /**
+     * Auto aiming: when PoG (eg. mouse simulated) falls within close range to the target
+     * Super aiming: pressing SPACEBAR, until the aiming hint covers the heart of the enemy
+     */
     this.aimingSystem = new AimingSystem(
-      this.cannon.x, this.cannon.y,
-      this.autoAimRange, this.autoAimAngle, this.autoAimDelay,
-      this.autoAimSaveFaith, this.autoAimKillFaith
+      this.cannon.x, this.cannon.y, this.autoAimRange, this.autoAimAngle,
+      this.autoAimDelay, this.autoAimSaveFaith, this.autoAimKillFaith,
+      this.superAimDelay, this.superAimSaveFaith, this.superAimKillFaith
     )
   }
 
@@ -565,8 +589,15 @@ class GameSystem {
     this.cannonCurrAngle = updated
   }
 
-  cannonUpdate(aimX, aimY) {
+  cannonUpdate(aimX, aimY, spacebar, gazeValid) {
     this.cannon.update()
+
+    if (gazeValid == false && spacebar == false) return
+    if (this.activeEnemy !== undefined && spacebar == true) {
+      aimX = this.activeEnemy.x
+      aimY = this.activeEnemy.y
+    }
+
     this.cannonUpdateAngle(aimX, aimY)
   }
 
@@ -593,9 +624,9 @@ class GameSystem {
     }
   }
 
-  enemyUpdate(aimX, aimY, spacebar) {
+  enemyUpdate(aimX, aimY, spacebar, gazeValid) {
     if (this.activeEnemy !== undefined) {
-      const judge = this.aimingSystem.judgeAutoAim(
+      const judge = gazeValid && this.aimingSystem.judgeAutoAim(
         this.activeEnemy.x, this.activeEnemy.y, aimX, aimY
       )
 
@@ -607,7 +638,7 @@ class GameSystem {
           pow(this.cannon.x - this.activeEnemy.x, 2) +
           pow(this.cannon.y - this.activeEnemy.y, 2)
         )
-        this.cannon.openFire(hitRadius, this.autoAimAngle)
+        this.cannon.openFire(this.cannonRotate(), hitRadius, this.autoAimAngle)
         this.explosionCreate(this.activeEnemy.x, this.activeEnemy.y)
 
         this.enemyCorpse = this.activeEnemy
@@ -644,7 +675,7 @@ class GameSystem {
     this.explosions = nextExplosion
   }
 
-  draw(aimX, aimY, spacebar = false) {
+  draw() {
     push()
 
     this.cannon.draw(this.cannonRotate())
@@ -661,9 +692,9 @@ class GameSystem {
     pop()
   }
 
-  update(aimX, aimY, spacebar = false) {
-    this.cannonUpdate(aimX, aimY)
-    this.enemyUpdate(aimX, aimY, spacebar)
+  update(aimX, aimY, spacebar = false, gazeValid = false) {
+    this.cannonUpdate(aimX, aimY, spacebar, gazeValid)
+    this.enemyUpdate(aimX, aimY, spacebar, gazeValid)
     this.explosionUpdate()
   }
 }

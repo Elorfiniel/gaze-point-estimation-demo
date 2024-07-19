@@ -45,7 +45,7 @@ function createViewsForIntro(ctx) {
       textAlign(CENTER, TOP)
       textSize(48)
       text(titleContent, 764, 60 + uiShift)
-    },
+    }
   )
 
   createViewHelper(
@@ -127,7 +127,7 @@ function createViewsForIntro(ctx) {
         c.values.add('init-outer-y', screenTop)
         c.display.setViewportOffset(devMouseX - winMouseX, devMouseY - winMouseY)
       }
-    },
+    }
   )
 
   return ['game-title', 'game-warn', 'start-button']
@@ -148,7 +148,7 @@ function createViewsForOncam(ctx) {
       textAlign(CENTER, TOP)
       textSize(32)
       text(messageText, 764, 430 + uiShift)
-    },
+    }
   )
 
   return ['open-cam']
@@ -180,7 +180,7 @@ function createViewsForGame(ctx) {
       if (timeRemain == 0) {
         c.states.setFutureState(c.states.states.CLOSE)
       }
-    },
+    }
   )
 
   createViewHelper(
@@ -197,7 +197,7 @@ function createViewsForGame(ctx) {
       textAlign(RIGHT, TOP)
       textSize(20)
       text(scoreText, 1492, 36 + uiShift)
-    },
+    }
   )
 
   return ['count-down', 'score-board']
@@ -218,7 +218,7 @@ function createViewsForClose(ctx) {
       textAlign(CENTER, TOP)
       textSize(32)
       text(messageText, 764, 430 + uiShift)
-    },
+    }
   )
 
   return ['kill-cam']
@@ -245,7 +245,7 @@ function createViewsForOutro(ctx) {
       strokeWeight(1.6)
       textSize(28)
       text(scoreText, 764, 344 + uiShift)
-    },
+    }
   )
 
   createViewHelper(
@@ -286,7 +286,7 @@ function createViewsForOutro(ctx) {
       if (onHover && mouseIsPressed) {
         c.states.setFutureState(c.states.states.INTRO)
       }
-    },
+    }
   )
 
   return ['congrats', 'restart-button']
@@ -323,9 +323,10 @@ function configureSocket(ctx) {
       ctx.states.setFutureState(allStates.OUTRO)
     }
 
-    if (msgObj.status == 'gaze-ready') {
+    if (msgObj.status == 'next-ready') {
       ctx.values.add('gaze', [msgObj.gaze_x, msgObj.gaze_y, msgObj.tid])
-      ctx.values.add('gaze-new', true)
+      ctx.values.add('next-ready', true)
+      ctx.values.add('next-valid', msgObj.valid)
     }
   })
 }
@@ -396,26 +397,23 @@ function drawWhenGame(ctx) {
   const spacebar = keyIsPressed && keyCode == 32
 
   const gameViews = ctx.values.get('game-views')
-  const gaze = ctx.values.get('gaze')
-  const gazeNew = ctx.values.pop('gaze-new')
   const recordMode = ctx.values.get('record-mode')
-
-  background(221, 230, 237)
-  ctx.space.draw()
+  const gaze = ctx.values.get('gaze')
+  const nextReady = ctx.values.pop('next-ready')
+  const nextValid = ctx.values.get('next-valid')
 
   const xUpdate = screenLeft - ctx.values.get('init-outer-x')
   const yUpdate = screenTop - ctx.values.get('init-outer-y')
-
-  if (gaze !== undefined) {
+  if (nextValid == true) {
     const screenXY = ctx.display.actual2screen(gaze[0], gaze[1])
     gazeXY = ctx.display.screen2canvas(screenXY[0], screenXY[1], xUpdate, yUpdate)
-    ctx.game.draw(gazeXY[0], gazeXY[1], spacebar)
   }
-  if (gazeNew == true || false /* TODO: add support for super aiming */) {
-    /**
-     * To prevent multiple aimed enemies, the total number of aimed enemies is limited
-     * to "one" regardless of the status of record mode.
-     */
+
+  background(221, 230, 237)
+  ctx.space.draw()
+  ctx.game.draw()
+
+  if (nextReady == true) {
     if (recordMode == true) {
       const enemy = ctx.game.getAimedEnemy()
 
@@ -426,8 +424,8 @@ function drawWhenGame(ctx) {
         ctx.socket.sendMessage({
           opcode: 'save-gaze',
           tid: gaze[2],
-          gaze_x: gaze[0],
-          gaze_y: gaze[1],
+          gaze_x: nextValid ? gaze[0] : 0,
+          gaze_y: nextValid ? gaze[1] : 0,
           label_x: actualXY[0],
           label_y: actualXY[1],
         })
@@ -437,10 +435,11 @@ function drawWhenGame(ctx) {
 
   drawViewsForState(ctx, gameViews)
 
+  const aimX = nextValid ? gazeXY[0] : undefined
+  const aimY = nextValid ? gazeXY[1] : undefined
+
   ctx.space.update()
-  if (gaze !== undefined) {
-    ctx.game.update(gazeXY[0], gazeXY[1], spacebar)
-  }
+  ctx.game.update(aimX, aimY, spacebar, nextValid)
 }
 
 function drawWhenClose(ctx) {

@@ -30,7 +30,8 @@ def fetch_save_task(save_queue, frame_cache, recording_manager):
   except queue.Empty:
     pass  # Nothing to save
 
-def camera_handler(open_event, kill_event, value_bank, value_lock, gaze_ready,
+def camera_handler(open_event, kill_event, value_bank, value_lock,
+                   next_ready, next_valid,
                    record_path, save_queue,
                    model, camera_id,
                    topleft_offset, screen_size_px, screen_size_cm,
@@ -83,6 +84,8 @@ def camera_handler(open_event, kill_event, value_bank, value_lock, gaze_ready,
 
     canvas = create_pv_canvas(image, background, pv_mode, pv_items)
 
+    gaze_screen_xy = None # Reset before next prediction
+
     if len(landmarks) > 0:
       # Get face crop, eye crops and face landmarks
       hw_ratio = eyes_resize[1] / eyes_resize[0]
@@ -95,18 +98,6 @@ def camera_handler(open_event, kill_event, value_bank, value_lock, gaze_ready,
         gx_filter, gy_filter,
       )
 
-      # Save the latest PoG inside the shared array
-      if gaze_screen_xy is not None:
-        with value_lock:
-          value_bank[0] = gaze_vec[0] # Gaze: x
-          value_bank[1] = gaze_vec[1] # Gaze: y
-          value_bank[2] = frame_count # Tid: frame
-        gaze_ready.set()
-
-        if record_path:
-          frame_cache.insert_frame(source_image, frame_count)
-        frame_count += 1
-
       # Display extra information on the preview
       if gaze_screen_xy is not None:
         display_gaze_on_canvas(canvas, gaze_screen_xy, pv_mode, pv_items)
@@ -114,6 +105,22 @@ def camera_handler(open_event, kill_event, value_bank, value_lock, gaze_ready,
 
     else:
       display_warning_on_canvas(canvas, pv_mode, pv_items)
+
+    # Save the latest PoG inside the shared array
+    with value_lock:
+      if gaze_screen_xy is not None:
+        value_bank[0] = gaze_vec[0] # Gaze: x
+        value_bank[1] = gaze_vec[1] # Gaze: y
+        next_valid.value = True     # PoG: valid
+      else:
+        next_valid.value = False
+
+      value_bank[2] = frame_count   # Tid: frame
+    next_ready.set()
+
+    if record_path:
+      frame_cache.insert_frame(source_image, frame_count)
+    frame_count += 1
 
     if display_canvas(pv_window, canvas, pv_mode, pv_items): break
 
@@ -133,7 +140,8 @@ def camera_handler(open_event, kill_event, value_bank, value_lock, gaze_ready,
     fetch_save_task(save_queue, frame_cache, recording_manager)
 
 def camera_process(config_path, record_path, save_queue,
-                   open_event, kill_event, value_bank, value_lock, gaze_ready):
+                   open_event, kill_event, value_bank, value_lock,
+                   next_ready, next_valid):
   '''Load model using configuration, start the camera handler.'''
 
   logging.info('gaze point estimator will start in a few seconds')
@@ -144,7 +152,8 @@ def camera_process(config_path, record_path, save_queue,
   model = load_model(config_path, config.pop('checkpoint'))
   # Handle control to camera handler
   camera_handler(
-    open_event, kill_event, value_bank, value_lock, gaze_ready,
+    open_event, kill_event, value_bank, value_lock,
+    next_ready, next_valid,
     record_path, save_queue, model, **config,
   )
 
@@ -174,7 +183,8 @@ async def handle_message(message, websocket, camera_status, config_path, record_
   if message_obj['opcode'] == 'open-cam':
     camera_status['camera-open'] = multiprocessing.Event()
     camera_status['camera-kill'] = multiprocessing.Event()
-    camera_status['gaze-ready'] = multiprocessing.Event()
+    camera_status['next-ready'] = multiprocessing.Event()
+    camera_status['next-valid'] = multiprocessing.Value('b', False)
     camera_status['value-bank'] = multiprocessing.Array('d', (0.0, 0.0, 0.0))
     camera_status['value-lock'] = multiprocessing.Lock()
     camera_status['save-queue'] = multiprocessing.Queue()
@@ -187,7 +197,8 @@ async def handle_message(message, websocket, camera_status, config_path, record_
         camera_status['camera-kill'],
         camera_status['value-bank'],
         camera_status['value-lock'],
-        camera_status['gaze-ready'],
+        camera_status['next-ready'],
+        camera_status['next-valid'],
       ),
     )
 
@@ -224,16 +235,19 @@ async def handle_message(message, websocket, camera_status, config_path, record_
   return should_exit
 
 async def broadcast_gaze(websocket, camera_status):
-  if camera_status['gaze-ready'].is_set():
+  if camera_status['next-ready'].is_set():
     with camera_status['value-lock']:
+      # Sync value and status from the camera process
       gaze_x, gaze_y, tid = camera_status['value-bank'][:]
-    camera_status['gaze-ready'].clear()
+      next_valid = camera_status['next-valid'].value
+    camera_status['next-ready'].clear()
 
-    # Send "gaze-ready" to notify the client
-    await websocket_send_json(websocket, {
-      'status': 'gaze-ready',
-      'gaze_x': gaze_x, 'gaze_y': gaze_y, 'tid': tid,
-    })
+    message_obj = {'status': 'next-ready', 'valid': next_valid, 'tid': tid}
+    if next_valid:
+      message_obj.update({'gaze_x': gaze_x, 'gaze_y': gaze_y})
+
+    # Send "next-ready" to notify the client
+    await websocket_send_json(websocket, message_obj)
 
 async def server_process(websocket, config_path, record_mode, record_path):
   logging.info('websocket server started, listening for requests')
