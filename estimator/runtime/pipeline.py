@@ -2,7 +2,6 @@ import cv2  # OpenCV-Python
 import numpy as np
 import onnx, onnxruntime
 import os.path as osp
-import torch as torch
 
 
 def load_model(config_path, model_path):
