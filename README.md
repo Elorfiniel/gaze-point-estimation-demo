@@ -47,6 +47,24 @@ python -m http.server --bind 127.0.0.1 5500
 
 Now, open the browser and visit [the demo page](http://127.0.0.1:5500/demo.html) served on `localhost:5500`.
 
+## Configuration
+
+Different laptops comes with different screen size and resolution. The default configuration assumes running the demo on a `lenovo yoga c740` laptop. If you are using a different laptop, you can adjust the configuration in `estimator/estimator.toml` to match your screen size and resolution. Check out the comments in the configuration file for more details.
+
+Most notably, you may need to adjust the `topleft_offset` (measured in centimeters), `screen_size_px` (measured in pixels) and `screen_size_cm` (measured in centimeters) in `estimator/estimator.toml` according to your screen size and resolution.
+
+## Record Mode
+
+The demo uses **the record mode** to capture the PoG from the javascript frontend and the face image from the python backend. This functionality is intended for the collection of [GazeCapture](https://gazecapture.csail.mit.edu/)-like datasets, so that the model can be trained and improved on the captured data.
+
+To enable the record mode, set `--record-mode` flag and specify the output directory using `--record-path`. For instance, you can run the following command to record the PoG and face image to `demo-capture` directory:
+
+```shell
+python estimator.py --record-mode --record-path demo-capture
+```
+
+The above command will create a `demo-capture` directory in the current folder (`estimator`) and save the captured PoGs and face images in the corresponding subfolders, named using the timestamp. Each subfolder contains a list of images named using format `<frame_count> <image_label>.jpg`, where the `<image_label>` is a string that indicates the image label, given by the predictor and the groundtruth (namely, `<px>_<py>_<gx>_<gy>`).
+
 ## Note
 
 The demo converts the estimated PoG to a 2D point on canvas using the following steps:
