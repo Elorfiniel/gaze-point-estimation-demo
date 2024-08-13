@@ -385,6 +385,10 @@ def active_root_logger():
   root_logger.setLevel(logging.INFO)
 
 def update_kwargs_by_pop(kwargs, update_kwargs):
+  '''Update `kwargs` by poping the keys in `update_kwargs`. It's assumed that
+  `kwargs` specifies all the needed key-value pairs (as defaults) so that
+  `update_kwargs` can be shared across different functions.'''
+
   for key in kwargs.keys():
     if key in update_kwargs:
       kwargs[key] = update_kwargs.pop(key)
