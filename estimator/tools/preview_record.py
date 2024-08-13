@@ -260,9 +260,8 @@ def gv_function_backend(fig, ax_image, ax_label, merged_labels, in_folder, image
     save_count=max_frames, interval=160,
   )
 
-def generate_visualization(in_folder, out_file, **visual_kwargs):
+def generate_visualization(in_folder, out_file, image_ext, **visual_kwargs):
   kwargs = dict(
-    image_ext='.jpg',
     func_anim=True,
     figsize=(13, 6),
     subplots_adjust=dict(left=0.08, right=0.90),
@@ -274,7 +273,7 @@ def generate_visualization(in_folder, out_file, **visual_kwargs):
   image_basenames = [
     item
     for item in os.listdir(in_folder)
-    if item.endswith(kwargs['image_ext'])
+    if item.endswith(image_ext)
   ]
   if not image_basenames:
     logging.warn(f'no images found in "{in_folder}", skipping "{out_file}"')
@@ -289,7 +288,7 @@ def generate_visualization(in_folder, out_file, **visual_kwargs):
   backend = gv_function_backend if kwargs['func_anim'] else gv_artist_backend
   animate = backend(
     fig, ax_image, ax_label, merged_labels, in_folder,
-    kwargs['image_ext'], **visual_kwargs,
+    image_ext, **visual_kwargs,
   )
 
   logging.info(f'out_file: "{out_file}"')
@@ -365,7 +364,7 @@ def main_procedure(cmdargs: argparse.Namespace):
   for recording in recordings:
     in_folder = osp.join(record_path, recording)
     out_file = osp.join(out_folder, f'{recording}.mp4')
-    generate_visualization(in_folder, out_file, **visual_kwargs)
+    generate_visualization(in_folder, out_file, cmdargs.img_ext, **visual_kwargs)
 
 
 
@@ -379,6 +378,8 @@ if __name__ == '__main__':
   targets.add_argument('--record-path', type=str, help='The path to the stored recordings.')
   targets.add_argument('--recording', type=str, help='The path to the recording to visualize.')
 
+  parser.add_argument('--img-ext', default='.jpg', type=parse_file_ext,
+                      help='The extension of the image files.')
   parser.add_argument('--out-folder', type=str, default='output', help='Output folder.')
 
   active_root_logger()

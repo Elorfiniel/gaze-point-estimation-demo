@@ -4,8 +4,9 @@ import logging
 
 __all__ = [
   'active_root_logger',
-  'parse_key_value',
   'update_kwargs_by_pop',
+  'parse_key_value',
+  'parse_file_ext',
 ]
 
 
@@ -37,7 +38,9 @@ def update_kwargs_by_pop(kwargs, update_kwargs):
       kwargs[key] = update_kwargs.pop(key)
 
 def parse_key_value(kv_string: str):
-  try:  # split the key-value pair, where key is a string, and value is a literal expression
+  '''Split the key-value pair.'''
+
+  try:  # with key a string, and value a literal expression
     key, value = kv_string.split(sep='=', maxsplit=1)
     key, value = key.strip(), value.strip()
     return key, ast.literal_eval(value)
@@ -45,3 +48,8 @@ def parse_key_value(kv_string: str):
     raise argparse.ArgumentTypeError(f"invalid argument '{kv_string}', expecting 'key=value', "
                                      "where key is a string, and value is a literal expression"
                                      "such as strings, numbers, tuples, lists, dicts, ...")
+
+def parse_file_ext(ext: str, leading_dot: bool = True):
+  '''Parse canonical file extension string.'''
+
+  return '.' + ext.strip('.') if leading_dot else ext.strip('.')
