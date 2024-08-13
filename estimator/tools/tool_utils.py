@@ -2,6 +2,12 @@ import argparse
 import ast
 import logging
 
+__all__ = [
+  'active_root_logger',
+  'parse_key_value',
+  'update_kwargs_by_pop',
+]
+
 
 def active_root_logger():
   '''Configure root logger for command line tools.'''
