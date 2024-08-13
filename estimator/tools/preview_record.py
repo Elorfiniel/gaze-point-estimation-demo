@@ -1,4 +1,5 @@
 import argparse
+import ast
 import logging
 import functools
 import numpy as np
@@ -116,7 +117,7 @@ def plot_frame_artist_backend(image_path, label, pred=None,
 
   return artists_image, artists_label
 
-def gv_artist_backend(fig, ax_image, ax_label, merged_labels, in_folder, image_ext):
+def gv_artist_backend(fig, ax_image, ax_label, merged_labels, in_folder, image_ext, **visual_kwargs):
   '''This backend comsumes huge memory, thus not recommended.'''
 
   is_calib = lambda p: p[0] == 0.0 and p[1] == 0.0
@@ -225,7 +226,7 @@ def plot_frame_function_backend(generated_params, global_context,
     global_context['true_label'].set_center(label)
     global_context['true_label'].set_facecolor(label_color)
 
-def gv_function_backend(fig, ax_image, ax_label, merged_labels, in_folder, image_ext):
+def gv_function_backend(fig, ax_image, ax_label, merged_labels, in_folder, image_ext, **visual_kwargs):
   '''This backend makes changes to each frame iteratively, thus more efficient.'''
 
   is_calib = lambda p: p[0] == 0.0 and p[1] == 0.0
@@ -258,26 +259,37 @@ def gv_function_backend(fig, ax_image, ax_label, merged_labels, in_folder, image
     save_count=max_frames, interval=160,
   )
 
-def generate_visualization(in_folder, out_file, image_ext='.jpg', func_anim=True, **kwargs):
+def generate_visualization(in_folder, out_file, **visual_kwargs):
+  kwargs = dict(
+    image_ext='.jpg',
+    func_anim=True,
+    figsize=(13, 6),
+    subplots_adjust=dict(left=0.08, right=0.90),
+  )
+  update_kwargs_by_pop(kwargs, visual_kwargs)
+
   logging.info(f'in_folder: "{in_folder}"')
 
   image_basenames = [
     item
     for item in os.listdir(in_folder)
-    if item.endswith(image_ext)
+    if item.endswith(kwargs['image_ext'])
   ]
   if not image_basenames:
     logging.warn(f'no images found in "{in_folder}", skipping "{out_file}"')
     return
   merged_labels = merge_image_labels(image_basenames)
 
-  fig, (ax_image, ax_label) = plt.subplots(1, 2, figsize=(13, 6))
-  fig.subplots_adjust(left=0.08, right=0.90)
+  fig, (ax_image, ax_label) = plt.subplots(1, 2, figsize=kwargs['figsize'])
+  fig.subplots_adjust(**kwargs['subplots_adjust'])
   set_image_plot_style(ax_image)
   set_label_plot_style(ax_label)
 
-  backend = gv_function_backend if func_anim else gv_artist_backend
-  animate = backend(fig, ax_image, ax_label, merged_labels, in_folder, image_ext)
+  backend = gv_function_backend if kwargs['func_anim'] else gv_artist_backend
+  animate = backend(
+    fig, ax_image, ax_label, merged_labels, in_folder,
+    kwargs['image_ext'], **visual_kwargs,
+  )
 
   logging.info(f'out_file: "{out_file}"')
   animate.save(out_file, writer='ffmpeg')
@@ -372,15 +384,23 @@ def active_root_logger():
   root_logger.addHandler(stream_handler)
   root_logger.setLevel(logging.INFO)
 
+def update_kwargs_by_pop(kwargs, update_kwargs):
+  for key in kwargs.keys():
+    if key in update_kwargs:
+      kwargs[key] = update_kwargs.pop(key)
+
 def parse_key_value(kv_string: str):
-  try:  # split the key-value pair
+  try:  # split the key-value pair, where key is a string, and value is a literal expression
     key, value = kv_string.split(sep='=', maxsplit=1)
-    return key, value
-  except ValueError:
-    raise argparse.ArgumentTypeError(f"invalid key-value pair '{kv_string}', expecting 'key=value'")
+    key, value = key.strip(), value.strip()
+    return key, ast.literal_eval(value)
+  except Exception as e:
+    raise argparse.ArgumentTypeError(f"invalid argument '{kv_string}', expecting 'key=value', "
+                                     "where key is a string, and value is a literal expression"
+                                     "such as strings, numbers, tuples, lists, dicts, ...")
 
 if __name__ == '__main__':
-  parser = argparse.ArgumentParser(description='visualize data captured with the gaze demo')
+  parser = argparse.ArgumentParser(description='Visualize data captured with the gaze demo.')
 
   parser.add_argument('--visual-kwargs', nargs='+', type=parse_key_value,
                       help='Visualization settings, e.g. --visual-kwargs "key=value".')
