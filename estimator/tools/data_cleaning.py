@@ -1,6 +1,7 @@
 from tool_utils import (
   QuickRegistry, active_root_logger,
   parse_file_ext, parse_key_value,
+  update_kwargs_by_pop,
 )
 from preview_record import (
   merge_image_labels, set_label_plot_style,
@@ -68,6 +69,13 @@ def data_cleaning_with_method(method_name, merged_labels, out_folder, **visual_k
   ```
   '''
 
+  kwargs = dict(
+    preview=False,
+    figsize=(10, 6),
+    dpi=196,
+  )
+  update_kwargs_by_pop(kwargs, visual_kwargs)
+
   is_calib = lambda p: p[0] == 0.0 and p[1] == 0.0
   all_preds = np.concatenate([
     np.array(m['preds'], dtype=np.float32) for m in merged_labels
@@ -79,8 +87,9 @@ def data_cleaning_with_method(method_name, merged_labels, out_folder, **visual_k
   # clean the data with the chosen method
   method_fn = method_registry[method_name]
   for mdx, merged_label in enumerate(merged_labels):
-    fig, ax_label = plt.subplots(1, 1, figsize=(10, 6), dpi=196)
-    set_label_plot_style(ax_label)
+    if kwargs['preview']:
+      fig, ax_label = plt.subplots(1, 1, figsize=kwargs['figsize'], dpi=kwargs['dpi'])
+      set_label_plot_style(ax_label)
 
     groundtruth = np.array(merged_label['gts'], dtype=np.float32)
 
@@ -90,16 +99,18 @@ def data_cleaning_with_method(method_name, merged_labels, out_folder, **visual_k
     preds = np.array([pred for pred in preds if not is_calib(pred)])
 
     masks = method_fn(preds, groundtruth)
-
-    valid_preds = np.array([pred for pred, mask in zip(preds, masks) if mask])
     valid_ids = [id for id, mask in zip(preds_ids, masks) if mask]
 
-    ax_label.scatter(all_preds[:, 0], all_preds[:, 1], facecolor='gray', s=2.4)
-    ax_label.scatter(valid_preds[:, 0], valid_preds[:, 1], facecolor='firebrick', s=4.0)
-    ax_label.set_title(f'PoG (gt): {", ".join(merged_label["gts"])}', fontsize='medium')
+    if kwargs['preview']:
+      ax_label.scatter(all_preds[:, 0], all_preds[:, 1], facecolor='gray', s=2.4)
 
-    figname = f'{mdx:05d} {"_".join(merged_label["gts"])} - {method_name}.png'
-    fig.savefig(osp.join(out_folder, figname))
+      valid_preds = np.array([pred for pred, mask in zip(preds, masks) if mask])
+      ax_label.scatter(valid_preds[:, 0], valid_preds[:, 1], facecolor='firebrick', s=4.0)
+
+      ax_label.set_title(f'PoG (gt): {", ".join(merged_label["gts"])}', fontsize='medium')
+
+      figname = f'{mdx:05d} {"_".join(merged_label["gts"])} - {method_name}.png'
+      fig.savefig(osp.join(out_folder, figname))
 
     if len(calib_ids) + len(valid_ids) > 0:
       cleaned_ids = sorted(calib_ids + valid_ids)
