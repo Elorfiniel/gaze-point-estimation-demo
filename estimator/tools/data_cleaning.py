@@ -142,7 +142,7 @@ def data_cleaning(in_folder, out_folder, image_ext, methods, **visual_kwargs):
   try:  # create output folder for current recording
     os.makedirs(out_folder, exist_ok=True)
   except Exception as ex:
-    logging.warn(f'cannot make output folder "{out_folder}", due to {ex}')
+    logging.warning(f'cannot make output folder "{out_folder}", due to {ex}')
 
 
   for method_name in methods:
@@ -172,16 +172,16 @@ def main_procedure(cmdargs: argparse.Namespace):
   if recordings:
     recordings.sort(reverse=False)
     try:  # make sure the output folder exists
-      out_folder = osp.abspath(cmdargs.out_folder)
-      os.makedirs(out_folder, exist_ok=True)
+      out_root = osp.abspath(cmdargs.out_folder)
+      os.makedirs(out_root, exist_ok=True)
     except Exception as ex:
-      logging.warn(f'cannot make output folder "{out_folder}", due to {ex}')
+      logging.warn(f'cannot make output folder "{out_root}", due to {ex}')
 
   logging.info(f'collected {len(recordings)} recordings from "{record_path}"')
 
   for recording in recordings:
     in_folder = osp.join(record_path, recording)
-    out_folder = osp.join(out_folder, recording)
+    out_folder = osp.join(out_root, recording)
     data_cleaning(in_folder, out_folder, cmdargs.img_ext, cmdargs.methods, **visual_kwargs)
 
 
