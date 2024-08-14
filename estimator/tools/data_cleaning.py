@@ -1,5 +1,10 @@
-from tool_utils import *
-from preview_record import merge_image_labels, set_label_plot_style
+from tool_utils import (
+  QuickRegistry, active_root_logger,
+  parse_file_ext, parse_key_value,
+)
+from preview_record import (
+  merge_image_labels, set_label_plot_style,
+)
 
 import argparse
 import json
@@ -8,13 +13,24 @@ import matplotlib.pyplot as plt
 import numpy as np
 import os
 import os.path as osp
+import sklearn.neighbors as skn
 
 
 method_registry = QuickRegistry()
 
-@method_registry.register(name='default')
-def default_clean(preds, groundtruth):
-  return [True] * len(preds)
+@method_registry.register(name='none')
+def skip_cleaning(preds, groundtruth):
+  return np.ones(shape=(len(preds), )).astype(bool)
+
+@method_registry.register(name='lof')
+def sklearn_lof_detector(preds, groundtruth, nn_ratio=0.40):
+  lof = skn.LocalOutlierFactor(
+    n_neighbors=max(int(nn_ratio * len(preds)), 1),
+    contamination='auto',
+  )
+  judges = lof.fit_predict(preds)
+
+  return judges == 1
 
 
 def data_cleaning_with_method(method_name, merged_labels, out_folder, **visual_kwargs):
@@ -164,7 +180,7 @@ if __name__ == '__main__':
 
   parser.add_argument('--visual-kwargs', nargs='+', type=parse_key_value,
                       help='Visualization settings, e.g. --visual-kwargs "key=value".')
-  parser.add_argument('--methods', nargs='+', type=str, default=['default'],
+  parser.add_argument('--methods', nargs='+', type=str, default=['none'],
                       help='Methods to use for data cleaning.')
 
   targets = parser.add_mutually_exclusive_group(required=True)
