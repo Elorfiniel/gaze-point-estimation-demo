@@ -3,11 +3,65 @@ import ast
 import logging
 
 __all__ = [
+  'QuickRegistry',
   'active_root_logger',
   'update_kwargs_by_pop',
   'parse_key_value',
   'parse_file_ext',
 ]
+
+
+class QuickRegistry():
+  def __init__(self):
+    '''Quick registry for storing objects on the fly.'''
+
+    self._REGISTRY = {}
+
+  def register(self, obj = None, *, name: str = '', force: bool = False):
+    '''Register an object to the registry.
+
+    ```
+    quick_registry = QuickRegistry()
+
+    @quick_registry.register
+    def mulberry(): print('i like mulberry')
+
+    @quick_registry.register(name='favorite')
+    def banana(): print('i like banana')
+
+    # Quick Registry
+    #   'mulberry': <function mulberry at ...>
+    #   'favorite': <function banana at ...>
+    ```
+
+    `obj`: the object to be registered in registry table.
+
+    `name`: an optional name for the object, which replaces the its `__name__` property.
+    Note that this argument must be passed in as a keyword argument.
+
+    `force`: force registering when an object with the same name has been registered.
+    Note that this argument must be passed in as a keyword argument.
+    '''
+
+    def register_item(_obj):
+      assert hasattr(_obj, '__name__') or name, 'please provide an identifier for the object'
+      name_registered = name or getattr(_obj, '__name__')
+
+      if not name_registered in self._REGISTRY:
+        self._REGISTRY[name_registered] = _obj
+      else:   # warn that the name has been registered
+        logging.warning(f'another object with name "{name_registered}" has been registered')
+        if force:
+          logging.warning(f'force registering a new object with name "{name_registered}"')
+          self._REGISTRY[name_registered] = _obj
+
+    if obj is None:
+      return register_item
+    else:
+      register_item(obj)
+
+  def __getitem__(self, name: str = ''):
+    return self._REGISTRY.get(name, None)
 
 
 def active_root_logger():
