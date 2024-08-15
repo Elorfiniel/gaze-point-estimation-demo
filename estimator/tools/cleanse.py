@@ -3,7 +3,7 @@ from tool_utils import (
   parse_file_ext, parse_key_value,
   update_kwargs_by_pop,
 )
-from preview_record import (
+from preview import (
   merge_image_labels, set_label_plot_style,
 )
 
