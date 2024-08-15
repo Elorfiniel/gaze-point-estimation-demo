@@ -279,7 +279,7 @@ def generate_visualization(in_folder, out_file, image_ext, **cfg_options):
     if item.endswith(image_ext)
   ]
   if not image_basenames:
-    logging.warn(f'no images found in "{in_folder}", skipping "{out_file}"')
+    logging.warning(f'no images found in "{in_folder}", skipping "{out_file}"')
     return
   merged_labels = merge_image_labels(image_basenames)
 
@@ -361,7 +361,7 @@ def main_procedure(cmdargs: argparse.Namespace):
       out_folder = osp.abspath(cmdargs.out_folder)
       os.makedirs(out_folder, exist_ok=True)
     except Exception as ex:
-      logging.warn(f'cannot make output folder "{out_folder}", due to {ex}')
+      logging.warning(f'cannot make output folder "{out_folder}", due to {ex}')
 
   logging.info(f'collected {len(recordings)} recordings from "{record_path}"')
 

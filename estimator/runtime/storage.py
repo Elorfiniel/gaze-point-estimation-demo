@@ -52,7 +52,7 @@ class RecordingManager():
     try:
       os.makedirs(self.root, exist_ok=True)
     except Exception as ex:
-      logging.warn(f'cannot make root directory "{self.root}", due to {ex}')
+      logging.warning(f'cannot make root directory "{self.root}", due to {ex}')
 
   def new_recording(self):
     self.folder = datetime.datetime.now().strftime('%m-%d-%Y-%H-%M-%S')
@@ -63,7 +63,7 @@ class RecordingManager():
     try:
       os.makedirs(folder_path, exist_ok=True)
     except Exception as ex:
-      logging.warn(f'cannot make recording folder "{folder_path}", due to {ex}')
+      logging.warning(f'cannot make recording folder "{folder_path}", due to {ex}')
 
   def save_frame(self, frame, px, py, lx, ly):
     item_label = f'{px:.4f}_{py:.4f}_{lx:.4f}_{ly:.4f}'
@@ -75,4 +75,4 @@ class RecordingManager():
       cv2.imwrite(frame_path, frame)
       self.item_count += 1
     except Exception as ex:
-      logging.warn(f'cannot save frame to path "{frame_path}", due to {ex}')
+      logging.warning(f'cannot save frame to path "{frame_path}", due to {ex}')

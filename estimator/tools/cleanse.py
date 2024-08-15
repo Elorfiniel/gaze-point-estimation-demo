@@ -155,7 +155,7 @@ def data_cleaning(in_folder, out_folder, image_ext, method, **cfg_options):
     if item.endswith(image_ext)
   ]
   if not image_basenames:
-    logging.warn(f'no images found in "{in_folder}", skipping "{out_folder}"')
+    logging.warning(f'no images found in "{in_folder}", skipping "{out_folder}"')
     return
   merged_labels = merge_image_labels(image_basenames)
 
@@ -199,7 +199,7 @@ def main_procedure(cmdargs: argparse.Namespace):
       out_root = osp.abspath(cmdargs.out_folder)
       os.makedirs(out_root, exist_ok=True)
     except Exception as ex:
-      logging.warn(f'cannot make output folder "{out_root}", due to {ex}')
+      logging.warning(f'cannot make output folder "{out_root}", due to {ex}')
 
   logging.info(f'collected {len(recordings)} recordings from "{record_path}"')
 
