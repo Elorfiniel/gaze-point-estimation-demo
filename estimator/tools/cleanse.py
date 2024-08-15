@@ -214,7 +214,7 @@ if __name__ == '__main__':
 
   parser.add_argument('--cfg-options', nargs='+', type=parse_key_value,
                       help='Extra configurations, e.g. --cfg-options "key=value".')
-  parser.add_argument('--method', type=str, default='none',
+  parser.add_argument('--method', type=str, default='none', choices=['none', 'lof'],
                       help='Method to use for data cleaning.')
 
   targets = parser.add_mutually_exclusive_group(required=True)
