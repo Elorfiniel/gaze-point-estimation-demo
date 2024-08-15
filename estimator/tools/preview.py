@@ -121,7 +121,7 @@ def plot_frame_artist_backend(image_path, label, pred=None,
 
   return artists_image, artists_label
 
-def gv_artist_backend(fig, ax_image, ax_label, merged_labels, in_folder, image_ext, **visual_kwargs):
+def gv_artist_backend(fig, ax_image, ax_label, merged_labels, in_folder, image_ext, **cfg_options):
   '''This backend comsumes huge memory, thus not recommended.'''
 
   is_calib = lambda p: p[0] == 0.0 and p[1] == 0.0
@@ -230,7 +230,7 @@ def plot_frame_function_backend(generated_params, global_context,
     global_context['true_label'].set_center(label)
     global_context['true_label'].set_facecolor(label_color)
 
-def gv_function_backend(fig, ax_image, ax_label, merged_labels, in_folder, image_ext, **visual_kwargs):
+def gv_function_backend(fig, ax_image, ax_label, merged_labels, in_folder, image_ext, **cfg_options):
   '''This backend makes changes to each frame iteratively, thus more efficient.'''
 
   is_calib = lambda p: p[0] == 0.0 and p[1] == 0.0
@@ -263,13 +263,13 @@ def gv_function_backend(fig, ax_image, ax_label, merged_labels, in_folder, image
     save_count=max_frames, interval=160,
   )
 
-def generate_visualization(in_folder, out_file, image_ext, **visual_kwargs):
+def generate_visualization(in_folder, out_file, image_ext, **cfg_options):
   kwargs = dict(
     func_anim=True,
     figsize=(13, 6),
     subplots_adjust=dict(left=0.08, right=0.90),
   )
-  update_kwargs_by_pop(kwargs, visual_kwargs)
+  update_kwargs_by_pop(kwargs, cfg_options)
 
   logging.info(f'in_folder: "{in_folder}"')
 
@@ -291,7 +291,7 @@ def generate_visualization(in_folder, out_file, image_ext, **visual_kwargs):
   backend = gv_function_backend if kwargs['func_anim'] else gv_artist_backend
   animate = backend(
     fig, ax_image, ax_label, merged_labels, in_folder,
-    image_ext, **visual_kwargs,
+    image_ext, **cfg_options,
   )
 
   logging.info(f'out_file: "{out_file}"')
@@ -352,7 +352,7 @@ def main_procedure(cmdargs: argparse.Namespace):
     recordings = [osp.basename(osp.abspath(cmdargs.recording))]
 
   # collect visualization settings
-  visual_kwargs = {k:v for k, v in cmdargs.visual_kwargs} if cmdargs.visual_kwargs else {}
+  cfg_options = {k:v for k, v in cmdargs.cfg_options} if cmdargs.cfg_options else {}
 
   # generate visualization for each recording, if any
   if recordings:
@@ -368,15 +368,15 @@ def main_procedure(cmdargs: argparse.Namespace):
   for recording in recordings:
     in_folder = osp.join(record_path, recording)
     out_file = osp.join(out_folder, f'{recording}.mp4')
-    generate_visualization(in_folder, out_file, cmdargs.img_ext, **visual_kwargs)
+    generate_visualization(in_folder, out_file, cmdargs.img_ext, **cfg_options)
 
 
 
 if __name__ == '__main__':
   parser = argparse.ArgumentParser(description='Visualize data captured with the gaze demo.')
 
-  parser.add_argument('--visual-kwargs', nargs='+', type=parse_key_value,
-                      help='Visualization settings, e.g. --visual-kwargs "key=value".')
+  parser.add_argument('--cfg-options', nargs='+', type=parse_key_value,
+                      help='Visualization settings, e.g. --cfg-options "key=value".')
 
   targets = parser.add_mutually_exclusive_group(required=True)
   targets.add_argument('--record-path', type=str, help='The path to the stored recordings.')
