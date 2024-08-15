@@ -376,7 +376,7 @@ if __name__ == '__main__':
   parser = argparse.ArgumentParser(description='Visualize data captured with the gaze demo.')
 
   parser.add_argument('--cfg-options', nargs='+', type=parse_key_value,
-                      help='Visualization settings, e.g. --cfg-options "key=value".')
+                      help='Extra configurations, e.g. --cfg-options "key=value".')
 
   targets = parser.add_mutually_exclusive_group(required=True)
   targets.add_argument('--record-path', type=str, help='The path to the stored recordings.')
