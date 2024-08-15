@@ -296,6 +296,7 @@ def generate_visualization(in_folder, out_file, image_ext, **visual_kwargs):
 
   logging.info(f'out_file: "{out_file}"')
   animate.save(out_file, writer='ffmpeg')
+  plt.close(fig)  # explicitly close the figure to release memory
 
 
 '''The following functions are used to plot the images and labels.

@@ -111,6 +111,7 @@ def data_cleaning_with_method(method_name, merged_labels, out_folder, **visual_k
 
       figname = f'{mdx:05d} {"_".join(merged_label["gts"])} - {method_name}.png'
       fig.savefig(osp.join(out_folder, figname))
+      plt.close(fig)  # explicitly close the figure to release memory
 
     if len(calib_ids) + len(valid_ids) > 0:
       cleaned_ids = sorted(calib_ids + valid_ids)
