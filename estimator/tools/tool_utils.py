@@ -8,6 +8,7 @@ __all__ = [
   'update_kwargs_by_pop',
   'parse_key_value',
   'parse_file_ext',
+  'resolve_estimator_runtime_path',
 ]
 
 
@@ -107,3 +108,22 @@ def parse_file_ext(ext: str, leading_dot: bool = True):
   '''Parse canonical file extension string.'''
 
   return '.' + ext.strip('.') if leading_dot else ext.strip('.')
+
+def resolve_estimator_runtime_path():
+  '''Append the ancestor folder `estimator` to Python search path,
+  so that this tooling can access its runtime modules.
+
+  Warn: this is a hacky way to make some toolings work without absolute imports.
+  '''
+
+  import os.path as osp
+  import sys
+
+  dirpath = osp.abspath(osp.dirname(osp.dirname(__file__)))
+  sys.path.append(dirpath)
+
+  try:  # test if facealign module can be imported
+    from runtime.facealign import FaceAlignment
+  except ImportError:
+    logging.error(f'cannot access the runtime modules, aborting ...')
+    exit(1)
