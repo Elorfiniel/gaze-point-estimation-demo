@@ -351,7 +351,7 @@ def main_procedure(cmdargs: argparse.Namespace):
     record_path = osp.dirname(osp.abspath(cmdargs.recording))
     recordings = [osp.basename(osp.abspath(cmdargs.recording))]
 
-  # collect visualization settings
+  # collect extra configurations
   cfg_options = {k:v for k, v in cmdargs.cfg_options} if cmdargs.cfg_options else {}
 
   # generate visualization for each recording, if any

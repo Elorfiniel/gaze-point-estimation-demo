@@ -133,7 +133,7 @@ def data_cleaning_with_method(method_name, merged_labels, out_folder,
   with open(out_file, 'w') as f:
     json.dump(cleaned_labels, f, indent=None)
 
-def data_cleaning(in_folder, out_folder, image_ext, methods, **cfg_options):
+def data_cleaning(in_folder, out_folder, image_ext, method, **cfg_options):
   '''Automatically clean up the data (eg. remove outliers).
 
   Currently, each Point-of-Gaze is treated independently, rather than jointly.
@@ -166,14 +166,13 @@ def data_cleaning(in_folder, out_folder, image_ext, methods, **cfg_options):
   kwargs = dict(min_preds_samples=4, min_total_samples=4)
   update_kwargs_by_pop(kwargs, cfg_options)
 
-  for method_name in methods:
-    if method_registry[method_name] is None:
-      logging.warning(f'method "{method_name}" not implemented, skipping ...')
-    else: # perform data cleaning
-      data_cleaning_with_method(
-        method_name, merged_labels, out_folder,
-        **kwargs, **cfg_options,
-      )
+  if method_registry[method] is None:
+    logging.warning(f'method "{method}" not implemented, skipping ...')
+  else: # perform data cleaning
+    data_cleaning_with_method(
+      method, merged_labels, out_folder,
+      **kwargs, **cfg_options,
+    )
 
 
 def main_procedure(cmdargs: argparse.Namespace):
@@ -189,7 +188,7 @@ def main_procedure(cmdargs: argparse.Namespace):
     record_path = osp.dirname(osp.abspath(cmdargs.recording))
     recordings = [osp.basename(osp.abspath(cmdargs.recording))]
 
-  # collect visualization settings
+  # collect extra configurations
   cfg_options = {k:v for k, v in cmdargs.cfg_options} if cmdargs.cfg_options else {}
 
   # perform data cleaning on each recording, if any
@@ -206,7 +205,7 @@ def main_procedure(cmdargs: argparse.Namespace):
   for recording in recordings:
     in_folder = osp.join(record_path, recording)
     out_folder = osp.join(out_root, recording)
-    data_cleaning(in_folder, out_folder, cmdargs.img_ext, cmdargs.methods, **cfg_options)
+    data_cleaning(in_folder, out_folder, cmdargs.img_ext, cmdargs.method, **cfg_options)
 
 
 
@@ -215,8 +214,8 @@ if __name__ == '__main__':
 
   parser.add_argument('--cfg-options', nargs='+', type=parse_key_value,
                       help='Extra configurations, e.g. --cfg-options "key=value".')
-  parser.add_argument('--methods', nargs='+', type=str, default=['none'],
-                      help='Methods to use for data cleaning.')
+  parser.add_argument('--method', type=str, default='none',
+                      help='Method to use for data cleaning.')
 
   targets = parser.add_mutually_exclusive_group(required=True)
   targets.add_argument('--record-path', type=str, help='The path to the stored recordings.')
