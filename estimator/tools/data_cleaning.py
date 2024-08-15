@@ -34,7 +34,9 @@ def sklearn_lof_detector(preds, groundtruth, nn_ratio=0.40):
   return judges == 1
 
 
-def data_cleaning_with_method(method_name, merged_labels, out_folder, **visual_kwargs):
+def data_cleaning_with_method(method_name, merged_labels, out_folder,
+                              min_preds_samples=4, min_total_samples=4,
+                              **cfg_options):
   '''Data cleaning follows the steps below:
 
   1. Read and scatter plot the data for each Point-of-Gaze.
@@ -74,7 +76,7 @@ def data_cleaning_with_method(method_name, merged_labels, out_folder, **visual_k
     figsize=(10, 6),
     dpi=196,
   )
-  update_kwargs_by_pop(kwargs, visual_kwargs)
+  update_kwargs_by_pop(kwargs, cfg_options)
 
   is_calib = lambda p: p[0] == 0.0 and p[1] == 0.0
   all_preds = np.concatenate([
@@ -98,14 +100,18 @@ def data_cleaning_with_method(method_name, merged_labels, out_folder, **visual_k
     preds_ids = [id for pred, id in zip(preds, merged_label['ids']) if not is_calib(pred)]
     preds = np.array([pred for pred in preds if not is_calib(pred)])
 
-    masks = method_fn(preds, groundtruth)
+    if len(preds) >= min_preds_samples:
+      masks = method_fn(preds, groundtruth)
+    else: # filter out insufficient samples
+      masks = np.zeros(shape=(len(preds), ), dtype=bool)
     valid_ids = [id for id, mask in zip(preds_ids, masks) if mask]
 
     if kwargs['preview']:
       ax_label.scatter(all_preds[:, 0], all_preds[:, 1], facecolor='gray', s=2.4)
 
-      valid_preds = np.array([pred for pred, mask in zip(preds, masks) if mask])
-      ax_label.scatter(valid_preds[:, 0], valid_preds[:, 1], facecolor='firebrick', s=4.0)
+      if len(valid_ids) > 0:
+        valid_preds = np.array([pred for pred, mask in zip(preds, masks) if mask])
+        ax_label.scatter(valid_preds[:, 0], valid_preds[:, 1], facecolor='firebrick', s=4.0)
 
       ax_label.set_title(f'PoG (gt): {", ".join(merged_label["gts"])}', fontsize='medium')
 
@@ -113,7 +119,7 @@ def data_cleaning_with_method(method_name, merged_labels, out_folder, **visual_k
       fig.savefig(osp.join(out_folder, figname))
       plt.close(fig)  # explicitly close the figure to release memory
 
-    if len(calib_ids) + len(valid_ids) > 0:
+    if len(calib_ids) + len(valid_ids) >= min_total_samples:
       cleaned_ids = sorted(calib_ids + valid_ids)
       cleaned_preds = [
         merged_label['preds'][id]
@@ -127,7 +133,7 @@ def data_cleaning_with_method(method_name, merged_labels, out_folder, **visual_k
   with open(out_file, 'w') as f:
     json.dump(cleaned_labels, f, indent=None)
 
-def data_cleaning(in_folder, out_folder, image_ext, methods, **visual_kwargs):
+def data_cleaning(in_folder, out_folder, image_ext, methods, **cfg_options):
   '''Automatically clean up the data (eg. remove outliers.'''
 
   image_basenames = [
@@ -145,12 +151,17 @@ def data_cleaning(in_folder, out_folder, image_ext, methods, **visual_kwargs):
   except Exception as ex:
     logging.warning(f'cannot make output folder "{out_folder}", due to {ex}')
 
+  kwargs = dict(min_preds_samples=4, min_total_samples=4)
+  update_kwargs_by_pop(kwargs, cfg_options)
 
   for method_name in methods:
     if method_registry[method_name] is None:
       logging.warning(f'method "{method_name}" not implemented, skipping ...')
     else: # perform data cleaning
-      data_cleaning_with_method(method_name, merged_labels, out_folder, **visual_kwargs)
+      data_cleaning_with_method(
+        method_name, merged_labels, out_folder,
+        **kwargs, **cfg_options,
+      )
 
 
 def main_procedure(cmdargs: argparse.Namespace):
@@ -167,7 +178,7 @@ def main_procedure(cmdargs: argparse.Namespace):
     recordings = [osp.basename(osp.abspath(cmdargs.recording))]
 
   # collect visualization settings
-  visual_kwargs = {k:v for k, v in cmdargs.visual_kwargs} if cmdargs.visual_kwargs else {}
+  cfg_options = {k:v for k, v in cmdargs.cfg_options} if cmdargs.cfg_options else {}
 
   # perform data cleaning on each recording, if any
   if recordings:
@@ -183,15 +194,15 @@ def main_procedure(cmdargs: argparse.Namespace):
   for recording in recordings:
     in_folder = osp.join(record_path, recording)
     out_folder = osp.join(out_root, recording)
-    data_cleaning(in_folder, out_folder, cmdargs.img_ext, cmdargs.methods, **visual_kwargs)
+    data_cleaning(in_folder, out_folder, cmdargs.img_ext, cmdargs.methods, **cfg_options)
 
 
 
 if __name__ == '__main__':
   parser = argparse.ArgumentParser(description='Perform data cleaning on collected recordings.')
 
-  parser.add_argument('--visual-kwargs', nargs='+', type=parse_key_value,
-                      help='Visualization settings, e.g. --visual-kwargs "key=value".')
+  parser.add_argument('--cfg-options', nargs='+', type=parse_key_value,
+                      help='Extra configurations, e.g. --cfg-options "key=value".')
   parser.add_argument('--methods', nargs='+', type=str, default=['none'],
                       help='Methods to use for data cleaning.')
 
