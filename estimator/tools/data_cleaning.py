@@ -134,7 +134,19 @@ def data_cleaning_with_method(method_name, merged_labels, out_folder,
     json.dump(cleaned_labels, f, indent=None)
 
 def data_cleaning(in_folder, out_folder, image_ext, methods, **cfg_options):
-  '''Automatically clean up the data (eg. remove outliers.'''
+  '''Automatically clean up the data (eg. remove outliers).
+
+  Currently, each Point-of-Gaze is treated independently, rather than jointly.
+  Moreover, the data cleaning does not take into account the ground-truth,
+  image features, and the calibration points. It follows a simple heuristic
+  approach that removes PoGs with insufficient samples, or samples that are
+  classified as outliers by the Local Outlier Factor.
+
+  TODO: fix observed issues listed below.
+    - a. samples with sharp head movements or closed eyes.
+    - b. samples where predicted PoGs are randomly scattered,
+      so that multiple clusters are formed.
+  '''
 
   image_basenames = [
     item
