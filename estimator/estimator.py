@@ -30,22 +30,23 @@ def fetch_save_task(save_queue, frame_cache, recording_manager):
   except queue.Empty:
     pass  # Nothing to save
 
-def camera_handler(open_event, kill_event, value_bank, value_lock,
-                   next_ready, next_valid,
-                   record_path, save_queue,
-                   model, camera_id,
+def camera_handler(model, camera_id,
                    topleft_offset, screen_size_px, screen_size_cm,
                    capture_resolution, target_resolution,
                    face_resize=(224, 224), eyes_resize=(224, 224),
                    pv_mode='none', pv_window='preview',
                    pv_items=['frame', 'gaze', 'time', 'warn'],
-                   gx_filt_params=dict(), gy_filt_params=dict()):
-  frame_count = 0
+                   gx_filt_params=dict(), gy_filt_params=dict(),
+                   server_params=None):
+  server_mode = server_params is not None and isinstance(server_params, dict)
 
-  if record_path:
-    # Create a recording manager to save captured frames
-    frame_cache = FrameCache(max_count=600)
-    recording_manager = RecordingManager(root=record_path)
+  if server_mode:
+    frame_count = 0
+
+    if server_params['record_path']:
+      # Create a recording manager to save captured frames
+      frame_cache = FrameCache(max_count=600)
+      recording_manager = RecordingManager(root=server_params['record_path'])
 
   # Create a video capture for the specified camera id
   capture = cv2.VideoCapture(camera_id)
@@ -72,9 +73,10 @@ def camera_handler(open_event, kill_event, value_bank, value_lock,
   logging.info(f'camera id {camera_id}, camera is opened {capture.isOpened()}')
 
   # Notify the parent process (websocket server, blocking)
-  open_event.set()
+  if server_mode:
+    server_params['open_event'].set()
 
-  while not kill_event.is_set():
+  while (not server_params['kill_event'].is_set() if server_mode else True):
     success, source_image = capture.read()
     if not success: continue
 
@@ -106,27 +108,29 @@ def camera_handler(open_event, kill_event, value_bank, value_lock,
     else:
       display_warning_on_canvas(canvas, pv_mode, pv_items)
 
-    # Save the latest PoG inside the shared array
-    with value_lock:
-      if gaze_screen_xy is not None:
-        value_bank[0] = gaze_vec[0] # Gaze: x
-        value_bank[1] = gaze_vec[1] # Gaze: y
-        next_valid.value = True     # PoG: valid
-      else:
-        next_valid.value = False
+    if server_mode:
+      # Save the latest PoG inside the shared array
+      with server_params['value_lock']:
+        if gaze_screen_xy is not None:
+          server_params['value_bank'][0] = gaze_vec[0] # Gaze: x
+          server_params['value_bank'][1] = gaze_vec[1] # Gaze: y
+          server_params['next_valid'].value = True     # PoG: valid
+        else:
+          server_params['next_valid'].value = False
 
-      value_bank[2] = frame_count   # Tid: frame
-    next_ready.set()
+        server_params['value_bank'][2] = frame_count   # Tid: frame
+      server_params['next_ready'].set()
 
-    if record_path:
-      frame_cache.insert_frame(source_image, frame_count)
-    frame_count += 1
+      if server_params['record_path']:
+        frame_cache.insert_frame(source_image, frame_count)
+      frame_count += 1
 
     if display_canvas(pv_window, canvas, pv_mode, pv_items): break
 
-    # Save the captured frame on disk, if any
-    if record_path and not save_queue.empty():
-      fetch_save_task(save_queue, frame_cache, recording_manager)
+    if server_mode:
+      # Save the captured frame on disk, if any
+      if server_params['record_path'] and not server_params['save_queue'].empty():
+        fetch_save_task(server_params['save_queue'], frame_cache, recording_manager)
 
   # Destroy named windows used for preview
   if pv_mode != 'none':
@@ -135,9 +139,10 @@ def camera_handler(open_event, kill_event, value_bank, value_lock,
   alignment.close()
   capture.release()
 
-  # Flash the remaining save task inside the save queue
-  while record_path and not save_queue.empty():
-    fetch_save_task(save_queue, frame_cache, recording_manager)
+  if server_mode:
+    # Flash the remaining save task inside the save queue
+    while server_params['record_path'] and not server_params['save_queue'].empty():
+      fetch_save_task(server_params['save_queue'], frame_cache, recording_manager)
 
 def camera_process(config_path, record_path, save_queue,
                    open_event, kill_event, value_bank, value_lock,
@@ -151,11 +156,17 @@ def camera_process(config_path, record_path, save_queue,
   # Load estimator checkpoint from file system
   model = load_model(config_path, config.pop('checkpoint'))
   # Handle control to camera handler
-  camera_handler(
-    open_event, kill_event, value_bank, value_lock,
-    next_ready, next_valid,
-    record_path, save_queue, model, **config,
+  server_params = dict(
+    open_event=open_event,
+    kill_event=kill_event,
+    value_bank=value_bank,
+    value_lock=value_lock,
+    next_ready=next_ready,
+    next_valid=next_valid,
+    record_path=record_path,
+    save_queue=save_queue,
   )
+  camera_handler(model, **config, server_params=server_params)
 
   logging.info('gaze point estimator has been safely closed, now terminating')
 
@@ -291,7 +302,7 @@ async def websocket_server(ws_handler, host, port):
 
 
 
-def main_procedure(cmdargs: Namespace):
+def main_procedure_server(cmdargs: Namespace):
   '''Start a camera process and a server process, run until interrupted.'''
 
   configure_logging(logging.INFO, force=True)
@@ -307,6 +318,28 @@ def main_procedure(cmdargs: Namespace):
 
   logging.info('websocket finished execution, now exiting')
 
+def main_procedure_preview(cmdargs: Namespace):
+  '''Run camera process and preview the estimated PoG on the screen.'''
+
+  logging.info('gaze point estimator preview will start in a few seconds')
+
+  # Load configuration for the PoG estimator
+  config_path = osp.abspath(cmdargs.config)
+  config = load_toml_secure(config_path)
+  # Load estimator checkpoint from file system
+  model = load_model(config_path, config.pop('checkpoint'))
+  # Handle control to camera preview
+  camera_handler(model, **config)
+
+  logging.info('gaze point estimator preview finished, now exiting')
+
+def main_procedure(cmdargs: Namespace):
+  if cmdargs.mode == 'server':
+    main_procedure_server(cmdargs)
+
+  if cmdargs.mode == 'preview':
+    main_procedure_preview(cmdargs)
+
 
 
 if __name__ == '__main__':
@@ -314,6 +347,8 @@ if __name__ == '__main__':
 
   parser.add_argument('--config', type=str, default='estimator.toml',
                       help='Configuration for this PoG estimator.')
+  parser.add_argument('--mode', type=str, default='server', choices=['server', 'preview'],
+                      help='The mode to run the PoG estimator. Default is server.')
 
   parser.add_argument('--host', type=str, default='localhost',
                       help='The host address to bind the server to. Default is localhost.')
