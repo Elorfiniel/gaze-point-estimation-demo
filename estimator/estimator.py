@@ -16,6 +16,7 @@ import multiprocessing
 import numpy as np
 import os.path as osp
 import queue
+import time
 import websockets
 
 
@@ -80,6 +81,9 @@ def camera_handler(model, camera_id,
     success, source_image = capture.read()
     if not success: continue
 
+    # measure clock for all inference steps
+    inference_start = time.time()
+
     image = shrink_frame(source_image, capture_resolution, target_resolution)
     rgb_image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
     landmarks, theta = alignment.process(rgb_image)
@@ -94,11 +98,15 @@ def camera_handler(model, camera_id,
       crops, norm_ldmks, new_ldmks = alignment.get_face_crop(
         rgb_image, landmarks, theta, hw_ratio=hw_ratio)
       # Inference: predict PoG on the screen
-      gaze_screen_xy, gaze_vec, inference_time = predict_screen_xy(
+      gaze_screen_xy, gaze_vec = predict_screen_xy(
         model, crops, norm_ldmks, face_resize, eyes_resize,
         theta, topleft_offset, screen_size_px, screen_size_cm,
         gx_filter, gy_filter,
       )
+
+      # measure clock for all inference steps
+      inference_finish = time.time()
+      inference_time = inference_finish - inference_start
 
       # Display extra information on the preview
       if gaze_screen_xy is not None:

@@ -1,7 +1,10 @@
-from runtime.pipeline import prepare_model_input, do_model_inference
+from runtime.pipeline import (
+  prepare_model_input,
+  rotate_vector_a,
+  do_model_inference,
+)
 
 import numpy as np
-import time
 
 
 def clamp_with_converter(value, v_min, v_max, converter=None):
@@ -28,9 +31,7 @@ def gaze_vec_to_screen_xy(gaze_vector, screen_topleft_off_cm,
 
   return None
 
-def predict_screen_xy(model, crops, norm_ldmks, face_resize, eyes_resize,
-                      theta, topleft_offset, screen_size_px, screen_size_cm,
-                      gx_filter, gy_filter):
+def predict_model_output(model, crops, norm_ldmks, face_resize, eyes_resize):
   # Prepare model input according to model type
   face_crop, reye_crop, leye_crop = crops
   reye_center, leye_center = norm_ldmks[468], norm_ldmks[473]
@@ -38,12 +39,20 @@ def predict_screen_xy(model, crops, norm_ldmks, face_resize, eyes_resize,
 
   model_input = prepare_model_input(face_crop, reye_crop, leye_crop, eye_ldmks,
                                     face_resize, eyes_resize)
+  ort_outputs = do_model_inference(model, model_input)
 
-  # Inference according to model type
-  inference_start = time.time()
-  gaze_vec = do_model_inference(model, model_input, theta)
-  inference_finish = time.time()
-  inference_time = inference_finish - inference_start
+  return ort_outputs
+
+def predict_screen_xy(model, crops, norm_ldmks, face_resize, eyes_resize,
+                      theta, topleft_offset, screen_size_px, screen_size_cm,
+                      gx_filter, gy_filter):
+  ort_outputs = predict_model_output(model, crops, norm_ldmks, face_resize, eyes_resize)
+
+  # Gaze point predicted by model should be projected from prediction space
+  # back into camera coordinate space, by rotating around origin with `theta`
+  #   gx, gy = rotate_vector_a(gcx, gcy, theta).tolist()
+  gcx, gcy = ort_outputs[0].squeeze(0).tolist()
+  gaze_vec = rotate_vector_a(gcx, gcy, theta)
 
   # Display predicted gaze point on the screen
   gaze_screen_xy = gaze_vec_to_screen_xy(gaze_vec, topleft_offset,
@@ -55,4 +64,4 @@ def predict_screen_xy(model, crops, norm_ldmks, face_resize, eyes_resize,
     gy = clamp_with_converter(gy, 0, screen_size_px[0], converter=int)
     gaze_screen_xy = (gx, gy)
 
-  return gaze_screen_xy, gaze_vec, inference_time
+  return gaze_screen_xy, gaze_vec

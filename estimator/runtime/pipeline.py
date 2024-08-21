@@ -4,15 +4,19 @@ import onnx, onnxruntime
 import os.path as osp
 
 
-def load_model(config_path, model_path):
-  config_root = osp.dirname(osp.abspath(config_path))
-  model_path = osp.join(config_root, model_path)
+def load_onnx_model(model_path):
+  model_path = osp.abspath(model_path)
 
   model = onnx.load_model(model_path)
   onnx.checker.check_model(model)
   model = onnxruntime.InferenceSession(model_path)
 
   return model
+
+def load_model(config_path, model_path):
+  config_root = osp.dirname(osp.abspath(config_path))
+  model_path = osp.join(config_root, model_path)
+  return load_onnx_model(model_path)
 
 
 def prepare_input_image_crop(cv2_image):
@@ -55,7 +59,7 @@ def prepare_model_input(face_crop, reye_crop, leye_crop, eye_ldmks,
   return model_input
 
 
-def rotate_vector(x, y, theta):
+def rotate_vector_a(x, y, theta):
   theta = np.deg2rad(theta)
   cos, sin = np.cos(theta), np.sin(theta)
 
@@ -67,13 +71,20 @@ def rotate_vector(x, y, theta):
 
   return np.transpose(np.dot(M, np.transpose(v)))
 
-def do_model_inference(model, model_input, theta):
-  ort_outputs = model.run(None, model_input)
-  gcx, gcy = ort_outputs[0].squeeze(0).tolist()
+def rotate_vector_v(x, y, theta):
+  theta = np.deg2rad(theta)
+  cos, sin = np.cos(theta), np.sin(theta)
 
-  # Gaze point predicted by model should be projected from prediction space
-  # back into camera coordinate space, by rotating around origin with `theta`
-  #   gx, gy = rotate_vector(gcx, gcy, theta).tolist()
-  gaze_vec = rotate_vector(gcx, gcy, theta)
+  M = np.array([
+    [cos, -sin],
+    [sin, cos],
+  ], dtype=np.float32)
+  v = np.array([x, y], dtype=np.float32)
 
-  return gaze_vec
+  return np.stack([
+    np.transpose(np.dot(M[:, :, i], np.transpose(v[:, i])))
+    for i in range(len(theta))
+  ], axis=0)
+
+def do_model_inference(model, model_input):
+  return model.run(None, model_input)
