@@ -75,7 +75,7 @@ def data_cleaning_with_method(method_name, merged_labels, out_folder,
     preview=False,
     figsize=(10, 6),
     dpi=196,
-    out_filename='labels',
+    json_name='labels',
   )
   update_kwargs_by_pop(kwargs, cfg_options)
 
@@ -130,8 +130,8 @@ def data_cleaning_with_method(method_name, merged_labels, out_folder,
       cleaned_labels.append(cleaned_label)
 
   # save the cleaned data as json file
-  out_file = osp.join(out_folder, f'{kwargs["out_filename"]}.json')
-  with open(out_file, 'w') as f:
+  json_file = osp.join(out_folder, f'{kwargs["json_name"]}.json')
+  with open(json_file, 'w') as f:
     json.dump(cleaned_labels, f, indent=None)
 
 def data_cleaning(in_folder, out_folder, image_ext, method, **cfg_options):
