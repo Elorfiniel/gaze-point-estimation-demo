@@ -192,7 +192,7 @@ async def server_hello(websocket, config_path, record_mode):
     'recordMode': record_mode,
   })
 
-async def handle_message(message, websocket, camera_status, config_path, record_path):
+async def handle_message(message, websocket, camera_status, **kwargs):
   logging.debug(f'websocket server received message - {message}')
 
   should_exit = False
@@ -210,7 +210,8 @@ async def handle_message(message, websocket, camera_status, config_path, record_
 
     camera_status['camera-proc'] = multiprocessing.Process(
       target=camera_process, args=(
-        config_path, record_path,
+        kwargs['config_path'],
+        kwargs['record_path'],
         camera_status['save-queue'],
         camera_status['camera-open'],
         camera_status['camera-kill'],
@@ -291,7 +292,9 @@ async def server_process(websocket, config_path, record_mode, record_path):
 
     if message is not None:
       should_exit = await handle_message(
-        message, websocket, camera_status, config_path, record_path,
+        message, websocket, camera_status,
+        config_path=config_path,
+        record_path=record_path,
       )
       server_alive = not should_exit
 
