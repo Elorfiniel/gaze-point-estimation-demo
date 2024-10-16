@@ -28,27 +28,6 @@ function createViewHelper(name, ctx, draw_fn = (c) => {}, update_fn = (c) => {})
  */
 function createViewsForIntro(ctx) {
   createViewHelper(
-    'game-title',
-    ctx,
-    (c) => {
-      const recordMode = c.values.get('record-mode')
-      const uiShift = c.values.get('ui-shift')
-
-      let titleContent = '深  空  防  御'
-      if (recordMode == true) {
-        titleContent = '深  空  防  御  [  采  集  ]'
-      }
-
-      noFill()
-      stroke(39, 55, 77)
-      strokeWeight(2)
-      textAlign(CENTER, TOP)
-      textSize(48)
-      text(titleContent, 764, 60 + uiShift)
-    }
-  )
-
-  createViewHelper(
     'game-warn',
     ctx,
     (c) => {
@@ -130,7 +109,7 @@ function createViewsForIntro(ctx) {
     }
   )
 
-  return ['game-title', 'game-warn', 'start-button']
+  return ['game-warn', 'start-button']
 }
 
 function createViewsForOncam(ctx) {
