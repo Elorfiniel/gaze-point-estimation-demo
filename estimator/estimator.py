@@ -6,12 +6,12 @@ from runtime.pipeline import load_model
 from runtime.preview import *
 from runtime.storage import FrameCache, RecordingManager
 
-from argparse import ArgumentParser, Namespace
-
+import argparse
 import asyncio
-import functools
 import cv2
+import functools
 import json
+import logging
 import multiprocessing
 import numpy as np
 import os.path as osp
@@ -148,7 +148,7 @@ def camera_handler(model, camera_id,
   capture.release()
 
   if server_mode:
-    # Flash the remaining save task inside the save queue
+    # Flush the remaining save task inside the save queue
     while server_params['record_path'] and not server_params['save_queue'].empty():
       fetch_save_task(server_params['save_queue'], frame_cache, recording_manager)
 
@@ -310,7 +310,7 @@ async def websocket_server(ws_handler, host, port):
 
 
 
-def main_procedure_server(cmdargs: Namespace):
+def main_procedure_server(cmdargs: argparse.Namespace):
   '''Start a camera process and a server process, run until interrupted.'''
 
   configure_logging(logging.INFO, force=True)
@@ -326,7 +326,7 @@ def main_procedure_server(cmdargs: Namespace):
 
   logging.info('websocket finished execution, now exiting')
 
-def main_procedure_preview(cmdargs: Namespace):
+def main_procedure_preview(cmdargs: argparse.Namespace):
   '''Run camera process and preview the estimated PoG on the screen.'''
 
   logging.info('gaze point estimator preview will start in a few seconds')
@@ -341,7 +341,7 @@ def main_procedure_preview(cmdargs: Namespace):
 
   logging.info('gaze point estimator preview finished, now exiting')
 
-def main_procedure(cmdargs: Namespace):
+def main_procedure(cmdargs: argparse.Namespace):
   if cmdargs.mode == 'server':
     main_procedure_server(cmdargs)
 
@@ -351,7 +351,7 @@ def main_procedure(cmdargs: Namespace):
 
 
 if __name__ == '__main__':
-  parser = ArgumentParser(description='Predict gaze point from trained model.')
+  parser = argparse.ArgumentParser(description='Predict gaze point from trained model.')
 
   parser.add_argument('--config', type=str, default='estimator.toml',
                       help='Configuration for this PoG estimator.')
