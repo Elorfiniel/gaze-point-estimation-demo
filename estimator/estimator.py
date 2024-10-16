@@ -229,16 +229,21 @@ async def handle_message(message, websocket, camera_status, **kwargs):
     await websocket_send_json(websocket, { 'status': 'camera-on' })
 
   # On receiving "kill-cam", terminate the camera process
-  if message_obj['opcode'] == 'kill-cam':
+  # On receiving "kill-server", terminate the server
+  if message_obj['opcode'] in ['kill-cam', 'kill-server']:
     if camera_status.get('camera-proc', None):
       camera_status['camera-kill'].set()
       camera_status['camera-proc'].join()
 
     camera_status.clear()
 
-    if not message_obj['hard']:
-      # Send "camera-off" to notify the client
-      await websocket_send_json(websocket, { 'status': 'camera-off' })
+    if message_obj['opcode'] == 'kill-cam':
+      if not message_obj['hard']:
+        # Send "camera-off" to notify the client
+        await websocket_send_json(websocket, { 'status': 'camera-off' })
+
+    if message_obj['opcode'] == 'kill-server':
+      kwargs['stop_future'].set_result(True)
 
     should_exit = True
 
@@ -269,7 +274,7 @@ async def broadcast_gaze(websocket, camera_status):
     # Send "next-ready" to notify the client
     await websocket_send_json(websocket, message_obj)
 
-async def server_process(websocket, config_path, record_mode, record_path):
+async def server_process(websocket, stop_future, config_path, record_mode, record_path):
   logging.info('websocket server started, listening for requests')
   logging.info(f'loading estimator configuration from {config_path}')
   if record_mode:
@@ -295,6 +300,7 @@ async def server_process(websocket, config_path, record_mode, record_path):
         message, websocket, camera_status,
         config_path=config_path,
         record_path=record_path,
+        stop_future=stop_future,
       )
       server_alive = not should_exit
 
@@ -308,8 +314,13 @@ async def server_process(websocket, config_path, record_mode, record_path):
 async def websocket_server(ws_handler, host, port):
   '''A general-purpose websocket server that runs forever.'''
 
+  loop = asyncio.get_running_loop()
+  stop = loop.create_future()
+
+  ws_handler = functools.partial(ws_handler, stop_future=stop)
+
   async with websockets.serve(ws_handler, host, port):
-    await asyncio.Future()  # Run forever
+    await stop  # Run until stop future is resolved
 
 
 
