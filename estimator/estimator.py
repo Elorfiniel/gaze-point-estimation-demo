@@ -325,7 +325,11 @@ def main_procedure_server(cmdargs: argparse.Namespace):
     record_mode=cmdargs.record_mode,
     record_path=cmdargs.record_path,
   )
-  asyncio.run(websocket_server(ws_handler, cmdargs.host, cmdargs.port))
+
+  try:  # Run websocket server until gracefully terminated
+    asyncio.run(websocket_server(ws_handler, cmdargs.host, cmdargs.port))
+  except KeyboardInterrupt:
+    pass  # Ignore traceback if no websocket handler is running
 
   logging.info('websocket finished execution, now exiting')
 
