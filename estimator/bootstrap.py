@@ -179,7 +179,10 @@ def main_procedure(cmdargs: argparse.Namespace):
     cmdargs.http_host, cmdargs.http_port, get_bundled_path(osp.join('_app_data', 'sketch')),
   )
 
-  http_thread = threading.Thread(target=http_server_thread, args=(httpd, ))
+  http_thread = threading.Thread(
+    target=http_server_thread,
+    args=(httpd, cmdargs.http_host, cmdargs.http_port),
+  )
   http_thread.start()
 
   websocket_server_thread(cmdargs.host, cmdargs.port, device_config, httpd)
