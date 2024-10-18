@@ -1,7 +1,11 @@
 # -*- mode: python ; coding: utf-8 -*-
 
 
+# Runtime customiization for the bundled app
 from argparse import ArgumentParser
+from glob import glob
+from os.path import dirname, join, relpath
+from sysconfig import get_path
 
 parser = ArgumentParser(description='Make the bundled app.')
 parser.add_argument(
@@ -9,20 +13,31 @@ parser.add_argument(
     help='Make a one directory app for debugging.',
 )
 options = parser.parse_args()
+purelib_path = get_path('purelib')
+
+# Copy the data files required by the bundled app
+datas = [
+    ('estimator.toml', '_app_data'),
+    ('checkpoint/model.onnx', '_app_data/checkpoint'),
+    ('../sketch/assets', '_app_data/sketch/assets'),
+    ('../sketch/runtime', '_app_data/sketch/runtime'),
+    ('../sketch/styles', '_app_data/sketch/styles'),
+    ('../sketch/demo.*', '_app_data/sketch'),
+]
+
+# Copy binary protobuf file required by MediaPipe
+modules = ['face_detection', 'face_landmark', 'iris_landmark']
+for module in modules:
+    root = join(purelib_path, 'mediapipe', 'modules', module)
+    for file in glob(join(root, '*.binarypb')) + glob(join(root, '*.tflite')):
+        datas.append((file, dirname(relpath(file, purelib_path))))
 
 
 a = Analysis(
     ['bootstrap.py'],
     pathex=[],
     binaries=[],
-    datas=[
-        ('estimator.toml', '_app_data'),
-        ('checkpoint/model.onnx', '_app_data/checkpoint'),
-        ('../sketch/assets', '_app_data/sketch/assets'),
-        ('../sketch/runtime', '_app_data/sketch/runtime'),
-        ('../sketch/styles', '_app_data/sketch/styles'),
-        ('../sketch/demo.*', '_app_data/sketch'),
-    ],
+    datas=datas,
     hiddenimports=[],
     hookspath=[],
     hooksconfig={},
