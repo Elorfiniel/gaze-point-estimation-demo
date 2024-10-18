@@ -1,0 +1,14 @@
+# Device Specific Configuration for PoG Estimator (for bundled app)
+
+# Laptop specific parameters, example (lenovo yoga c740)
+#   1. ID of the camera used to capture frames
+#   2. Offset of screen topleft corner in camera coordinate system
+#   3. Screen size (height, weight) in pixels and centimeters
+camera_id = 0
+topleft_offset = [-15.5, -0.5]
+screen_size_px = [1080, 1920]
+screen_size_cm = [17.4, 31.0]
+
+# The path to store the recordings, set to enable record mode
+#   Note: use an absolute path, or a relative path to the bootstrap EXE
+# record_path = 'demo-capture'

@@ -33,6 +33,7 @@ def load_toml_secure(toml_path):
 
 def shrink_frame(image, src_res, tgt_res):
   '''Shrink a larger source resolution to a smaller resolution that fits within.'''
+
   assert src_res[0] >= tgt_res[0] and src_res[1] >= tgt_res[1]
 
   src_asp = src_res[1] / src_res[0]
@@ -54,4 +55,19 @@ def shrink_frame(image, src_res, tgt_res):
 
 
 async def websocket_send_json(websocket, message_obj):
+  '''Send a JSON object over websocket.'''
   await websocket.send(json.dumps(message_obj))
+
+
+def deep_update(target_dict: dict, new_dict: dict):
+  '''Deeply update a dictionary with another dictionary.'''
+
+  target_dict = target_dict.copy()
+
+  for key, value in new_dict.items():
+    if key in target_dict and isinstance(target_dict[key], dict) and isinstance(value, dict):
+      target_dict[key] = deep_update(target_dict[key], value)
+    else:
+      target_dict[key] = value
+
+  return target_dict

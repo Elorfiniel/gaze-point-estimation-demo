@@ -5,8 +5,10 @@ estimator/checkpoint/*.onnx
 .vscode
 __pycache__
 
-# ignore temporary server and client for debugging
-estimator/server.py
+# ignore the bundled files
+bundle
+
+# ignore temporary files for debugging
 sketch/client.html
 sketch/client.js
 

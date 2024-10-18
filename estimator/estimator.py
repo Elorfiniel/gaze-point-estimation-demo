@@ -12,7 +12,7 @@ import cv2
 import functools
 import json
 import logging
-import multiprocessing
+import multiprocessing as mp
 import numpy as np
 import os.path as osp
 import queue
@@ -200,16 +200,16 @@ async def handle_message(message, websocket, camera_status, **kwargs):
 
   # On receving "open-cam", start the camera process
   if message_obj['opcode'] == 'open-cam':
-    camera_status['camera-open'] = multiprocessing.Event()
-    camera_status['camera-kill'] = multiprocessing.Event()
-    camera_status['next-ready'] = multiprocessing.Event()
-    camera_status['next-valid'] = multiprocessing.Value('b', False)
-    camera_status['value-bank'] = multiprocessing.Array('d', (0.0, 0.0, 0.0))
-    camera_status['value-lock'] = multiprocessing.Lock()
-    camera_status['save-queue'] = multiprocessing.Queue()
+    camera_status['camera-open'] = mp.Event()
+    camera_status['camera-kill'] = mp.Event()
+    camera_status['next-ready'] = mp.Event()
+    camera_status['next-valid'] = mp.Value('b', False)
+    camera_status['value-bank'] = mp.Array('d', (0.0, 0.0, 0.0))
+    camera_status['value-lock'] = mp.Lock()
+    camera_status['save-queue'] = mp.Queue()
 
-    camera_status['camera-proc'] = multiprocessing.Process(
-      target=camera_process, args=(
+    camera_status['camera-proc'] = mp.Process(
+      target=kwargs['camera_proc'], args=(
         kwargs['config_path'],
         kwargs['record_path'],
         camera_status['save-queue'],
@@ -298,6 +298,7 @@ async def server_process(websocket, stop_future, config_path, record_mode, recor
     if message is not None:
       should_exit = await handle_message(
         message, websocket, camera_status,
+        camera_proc=camera_process,
         config_path=config_path,
         record_path=record_path,
         stop_future=stop_future,
@@ -327,7 +328,6 @@ async def websocket_server(ws_handler, host, port):
 def main_procedure_server(cmdargs: argparse.Namespace):
   '''Start a camera process and a server process, run until interrupted.'''
 
-  configure_logging(logging.INFO, force=True)
   logging.info('starting the websocket server to listen for client requests')
 
   ws_handler = functools.partial(
@@ -369,6 +369,8 @@ def main_procedure(cmdargs: argparse.Namespace):
 
 
 if __name__ == '__main__':
+  configure_logging(logging.INFO, force=True)
+
   parser = argparse.ArgumentParser(description='Predict gaze point from trained model.')
 
   parser.add_argument('--config', type=str, default='estimator.toml',
