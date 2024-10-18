@@ -1,3 +1,11 @@
+# Enable multiprocessing for the bundled app, as described in the following links:
+#   1. https://pyinstaller.org/en/stable/common-issues-and-pitfalls.html#multi-processing
+#   2. https://stackoverflow.com/questions/24944558/pyinstaller-built-windows-exe-fails-with-multiprocessing
+if __name__ == '__main__':
+  from multiprocessing import freeze_support
+  freeze_support()  # Fix issues on Windows
+
+
 from estimator import (
   configure_logging, deep_update, load_toml_secure,
   server_hello, handle_message, broadcast_gaze, websocket_server,
