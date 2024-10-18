@@ -1,7 +1,6 @@
 from estimator import (
-  configure_logging, deep_update, load_toml_secure, load_model,
-  camera_handler, handle_message, broadcast_gaze,
-  websocket_server, websocket_send_json,
+  configure_logging, deep_update, load_toml_secure,
+  server_hello, handle_message, broadcast_gaze, websocket_server,
 )
 from runtime.bundle import is_running_in_bundle, get_bundled_path
 
@@ -45,39 +44,6 @@ def create_httpd(host, port, directory):
 
   return DualStackServer(sockaddr, handler_class)
 
-def boot_camera(config_path, record_path, save_queue,
-                open_event, kill_event, value_bank, value_lock,
-                next_ready, next_valid, new_config=dict()):
-  '''Load model using configuration, start the camera handler.'''
-
-  # Load configuration for the PoG estimator
-  config = load_toml_secure(config_path)
-  config = deep_update(config, new_config)
-  # Load estimator checkpoint from file system
-  model = load_model(config_path, config.pop('checkpoint'))
-  # Handle control to camera handler
-  server_params = dict(
-    open_event=open_event,
-    kill_event=kill_event,
-    value_bank=value_bank,
-    value_lock=value_lock,
-    next_ready=next_ready,
-    next_valid=next_valid,
-    record_path=record_path,
-    save_queue=save_queue,
-  )
-  camera_handler(model, **config, server_params=server_params)
-
-
-async def server_hello(websocket, config, record_mode):
-  # Send "server-on" to notify the client
-  await websocket_send_json(websocket, {
-    'status': 'server-on',
-    'topleftOffset': config['topleft_offset'],
-    'screenSizePx': config['screen_size_px'],
-    'screenSizeCm': config['screen_size_cm'],
-    'recordMode': record_mode,
-  })
 
 async def server_process(websocket, stop_future, device_config):
   logging.info('websocket server started, listening for requests')
@@ -90,13 +56,13 @@ async def server_process(websocket, stop_future, device_config):
   # Load configuration for the PoG estimator
   config_path = get_bundled_path(osp.join('_app_data', 'estimator.toml'))
   config = load_toml_secure(config_path)
+  config['__config_path'] = config_path
+
   new_config = device_config.copy()
   for key in device_config.keys():
     if not key in _ALLOWED_KEYS_FOR_CONFIG:
       new_config.pop(key)
   config = deep_update(config, new_config)
-
-  camera_proc = functools.partial(boot_camera, new_config=new_config)
 
   # Send "server-on" to notify the client
   await server_hello(websocket, config, record_path != '')
@@ -115,8 +81,7 @@ async def server_process(websocket, stop_future, device_config):
     if message is not None:
       should_exit = await handle_message(
         message, websocket, camera_status,
-        camera_proc=camera_proc,
-        config_path=config_path,
+        config=config,
         record_path=record_path,
         stop_future=stop_future,
       )

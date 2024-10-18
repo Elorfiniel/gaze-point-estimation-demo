@@ -152,17 +152,17 @@ def camera_handler(model, camera_id,
     while server_params['record_path'] and not server_params['save_queue'].empty():
       fetch_save_task(server_params['save_queue'], frame_cache, recording_manager)
 
-def camera_process(config_path, record_path, save_queue,
+def camera_process(config, record_path, save_queue,
                    open_event, kill_event, value_bank, value_lock,
                    next_ready, next_valid):
   '''Load model using configuration, start the camera handler.'''
 
   logging.info('gaze point estimator will start in a few seconds')
 
-  # Load configuration for the PoG estimator
-  config = load_toml_secure(config_path)
   # Load estimator checkpoint from file system
-  model = load_model(config_path, config.pop('checkpoint'))
+  config = config.copy()  # Prevent modification
+  model = load_model(config.pop('__config_path'), config.pop('checkpoint'))
+
   # Handle control to camera handler
   server_params = dict(
     open_event=open_event,
@@ -180,9 +180,7 @@ def camera_process(config_path, record_path, save_queue,
 
 
 
-async def server_hello(websocket, config_path, record_mode):
-  # Load actual screen height and width from the PoG estimator configuration
-  config = load_toml_secure(config_path)
+async def server_hello(websocket, config, record_mode):
   # Send "server-on" to notify the client
   await websocket_send_json(websocket, {
     'status': 'server-on',
@@ -209,8 +207,8 @@ async def handle_message(message, websocket, camera_status, **kwargs):
     camera_status['save-queue'] = mp.Queue()
 
     camera_status['camera-proc'] = mp.Process(
-      target=kwargs['camera_proc'], args=(
-        kwargs['config_path'],
+      target=camera_process, args=(
+        kwargs['config'],
         kwargs['record_path'],
         camera_status['save-queue'],
         camera_status['camera-open'],
@@ -281,8 +279,12 @@ async def server_process(websocket, stop_future, config_path, record_mode, recor
     logging.info(f'recording mode on, save recordings to {record_path}')
   record_path = osp.abspath(record_path) if record_mode else ''
 
+  # Load configuration for the PoG estimator
+  config = load_toml_secure(config_path)
+  config['__config_path'] = config_path
+
   # Send "server-on" to notify the client
-  await server_hello(websocket, config_path, record_mode)
+  await server_hello(websocket, config, record_mode)
 
   camera_status = {}
   server_alive = True
@@ -298,8 +300,7 @@ async def server_process(websocket, stop_future, config_path, record_mode, recor
     if message is not None:
       should_exit = await handle_message(
         message, websocket, camera_status,
-        camera_proc=camera_process,
-        config_path=config_path,
+        config=config,
         record_path=record_path,
         stop_future=stop_future,
       )
