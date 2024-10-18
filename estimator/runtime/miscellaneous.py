@@ -13,7 +13,7 @@ def configure_logging(level=logging.INFO, force=False):
   )
 
 
-def load_toml_secure(toml_path):
+def load_toml_secure(toml_path, allow_pickle=True):
   '''Load toml file with caution, return None if failed.'''
 
   toml_data = None
@@ -27,6 +27,9 @@ def load_toml_secure(toml_path):
 
   if toml_data is None:
     logging.error(f'cannot load from TOML file "{toml_path}"')
+
+  if toml_data is not None and allow_pickle:
+    toml_data = json.loads(json.dumps(toml_data))
 
   return toml_data
 
