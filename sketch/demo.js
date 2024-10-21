@@ -76,13 +76,13 @@ function createViewsForIntro(ctx) {
       const uiShift = c.values.get('ui-shift')
       const scaling = c.values.get('ui-scale')
 
-      const buttonText = '开  始  游  戏'
+      const buttonText = '开  始'
 
       const checkMouse = (x, y) => {
         x = x / scaling
         y = y / scaling
 
-        const xInRange = 664 <= x && x <= 864
+        const xInRange = 704 <= x && x <= 824
         const yInRange = 590.8 + uiShift <= y && y <= 640.8 + uiShift
 
         return xInRange && yInRange
@@ -93,7 +93,7 @@ function createViewsForIntro(ctx) {
       onHover ? stroke(169, 29, 58) : stroke(39, 55, 77)
       strokeWeight(2)
       rectMode(CENTER)
-      rect(764, 615.8 + uiShift, 200, 50)
+      rect(764, 615.8 + uiShift, 120, 50)
 
       strokeWeight(1.6)
       textAlign(CENTER, CENTER)
