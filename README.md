@@ -65,6 +65,25 @@ python estimator.py --record-mode --record-path demo-capture
 
 The above command will create a `demo-capture` directory in the current folder (`estimator`) and save the captured PoGs and face images in the corresponding subfolders, named using the timestamp. Each subfolder contains a list of images named using format `<frame_count> <image_label>.jpg`, where the `<image_label>` is a string that indicates the image label, given by the predictor and the groundtruth (namely, `<px>_<py>_<gx>_<gy>`).
 
+## Bundled App
+
+The demo can be packaged into a standalone application using [PyInstaller](https://www.pyinstaller.org), following these steps:
+
+```shell
+# make sure you have the required dependencies installed
+cd estimator && pip install -r requirements.txt
+
+# bundle the application using the "bootstrap.spec"
+pyinstaller --distpath ../bundle/dist --workpath ../bundle/build bootstrap.spec
+
+# copy the configuration file to the output directory
+cp config.toml ../bundle/dist/config.toml
+```
+
+The above command will use the `bundle` directory during the bundling process. The bundled application locates in `bundle/dist`, and can be run directly from the command line, eg `./bootstrap.exe`.
+
+For implementation details about the bundling process, take a look at the `bootstrap.spec` file. You may also find these resources useful: 1. [Using PyInstaller](https://pyinstaller.org/en/stable/usage.html), 2. [Using Spec Files](https://pyinstaller.org/en/stable/spec-files.html), 3. [Runtime Information](https://pyinstaller.org/en/stable/runtime-information.html).
+
 ## Note
 
 The demo converts the estimated PoG to a 2D point on canvas using the following steps:

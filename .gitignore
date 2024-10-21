@@ -6,7 +6,8 @@ estimator/checkpoint/*.onnx
 __pycache__
 
 # ignore the bundled files
-bundle
+bundle/*
+!bundle/.gitkeep
 
 # ignore temporary files for debugging
 sketch/client.html
