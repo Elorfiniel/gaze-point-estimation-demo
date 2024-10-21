@@ -185,7 +185,6 @@ async def server_hello(websocket, config, record_mode):
   await websocket_send_json(websocket, {
     'status': 'server-on',
     'topleftOffset': config['topleft_offset'],
-    'screenSizePx': config['screen_size_px'],
     'screenSizeCm': config['screen_size_cm'],
     'recordMode': record_mode,
   })

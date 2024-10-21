@@ -318,10 +318,6 @@ function configureSocket(ctx) {
     const allStates = ctx.states.allStates()
 
     if (msgObj.status == 'server-on') {
-      ctx.values.add('topleft-offset', msgObj.topleftOffset)
-      ctx.values.add('screen-size-px', msgObj.screenSizePx)
-      ctx.values.add('screen-size-cm', msgObj.screenSizeCm)
-
       ctx.display.setScreenOrigin(msgObj.topleftOffset[0], msgObj.topleftOffset[1])
       ctx.display.setActualSize(msgObj.screenSizeCm[0], msgObj.screenSizeCm[1])
       ctx.display.setScreenSize(screen.height, screen.width)
