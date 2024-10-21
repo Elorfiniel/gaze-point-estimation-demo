@@ -82,7 +82,7 @@ function createViewsForIntro(ctx) {
         x = x / scaling
         y = y / scaling
 
-        const xInRange = 704 <= x && x <= 824
+        const xInRange = 624 <= x && x <= 744
         const yInRange = 590.8 + uiShift <= y && y <= 640.8 + uiShift
 
         return xInRange && yInRange
@@ -93,12 +93,12 @@ function createViewsForIntro(ctx) {
       onHover ? stroke(169, 29, 58) : stroke(39, 55, 77)
       strokeWeight(2)
       rectMode(CENTER)
-      rect(764, 615.8 + uiShift, 120, 50)
+      rect(684, 615.8 + uiShift, 120, 50)
 
       strokeWeight(1.6)
       textAlign(CENTER, CENTER)
       textSize(24)
-      text(buttonText, 764, 611.8 + uiShift)
+      text(buttonText, 684, 611.8 + uiShift)
 
       if (onHover && mouseIsPressed) {
         c.states.setFutureState(c.states.states.ONCAM)
@@ -109,7 +109,44 @@ function createViewsForIntro(ctx) {
     }
   )
 
-  return ['game-warn', 'start-button']
+  createViewHelper(
+    'exit-button',
+    ctx,
+    (c) => {
+      const uiShift = c.values.get('ui-shift')
+      const scaling = c.values.get('ui-scale')
+
+      const buttonText = '退  出'
+
+      const checkMouse = (x, y) => {
+        x = x / scaling
+        y = y / scaling
+
+        const xInRange = 784 <= x && x <= 904
+        const yInRange = 590.8 + uiShift <= y && y <= 640.8 + uiShift
+
+        return xInRange && yInRange
+      }
+      const onHover = checkMouse(mouseX, mouseY)
+
+      noFill()
+      onHover ? stroke(169, 29, 58) : stroke(39, 55, 77)
+      strokeWeight(2)
+      rectMode(CENTER)
+      rect(844, 615.8 + uiShift, 120, 50)
+
+      strokeWeight(1.6)
+      textAlign(CENTER, CENTER)
+      textSize(24)
+      text(buttonText, 844, 611.8 + uiShift)
+
+      if (onHover && mouseIsPressed) {
+        c.socket.sendMessage({ opcode: 'kill-server' })
+      }
+    }
+  )
+
+  return ['game-warn', 'start-button', 'exit-button']
 }
 
 function createViewsForOncam(ctx) {
