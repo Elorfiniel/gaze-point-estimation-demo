@@ -52,20 +52,20 @@ function createViewsForIntro(ctx) {
       stroke(39, 55, 77)
       strokeWeight(2)
       rectMode(CENTER)
-      rect(764, 430 + uiShift, 774, 516)
+      rect(764.0 + uiShift[0], 430.0 + uiShift[1], 774, 516)
 
       stroke(169, 29, 58)
       strokeWeight(1.6)
       textSize(32)
-      text(warnIntro, 764, 208 + uiShift)
+      text(warnIntro, 764.0 + uiShift[0], 208.0 + uiShift[1])
 
       stroke(39, 55, 77)
       strokeWeight(1.6)
       textSize(24)
       textWrap(CHAR)
       textLeading(40)
-      text(warnContent, 764, 502 + uiShift, 714, 456)
-      text(noteContent, 764, 718 + uiShift, 714, 456)
+      text(warnContent, 764.0 + uiShift[0], 502.0 + uiShift[1], 714, 456)
+      text(noteContent, 764.0 + uiShift[0], 718.0 + uiShift[1], 714, 456)
     }
   )
 
@@ -82,8 +82,8 @@ function createViewsForIntro(ctx) {
         x = x / scaling
         y = y / scaling
 
-        const xInRange = 624 <= x && x <= 744
-        const yInRange = 590.8 + uiShift <= y && y <= 640.8 + uiShift
+        const xInRange = 624.0 + uiShift[0] <= x && x <= 744.0 + uiShift[0]
+        const yInRange = 590.8 + uiShift[1] <= y && y <= 640.8 + uiShift[1]
 
         return xInRange && yInRange
       }
@@ -93,12 +93,12 @@ function createViewsForIntro(ctx) {
       onHover ? stroke(169, 29, 58) : stroke(39, 55, 77)
       strokeWeight(2)
       rectMode(CENTER)
-      rect(684, 615.8 + uiShift, 120, 50)
+      rect(684.0 + uiShift[0], 615.8 + uiShift[1], 120, 50)
 
       strokeWeight(1.6)
       textAlign(CENTER, CENTER)
       textSize(24)
-      text(buttonText, 684, 611.8 + uiShift)
+      text(buttonText, 684.0 + uiShift[0], 611.8 + uiShift[1])
 
       if (onHover && mouseIsPressed) {
         c.states.setFutureState(c.states.states.ONCAM)
@@ -122,8 +122,8 @@ function createViewsForIntro(ctx) {
         x = x / scaling
         y = y / scaling
 
-        const xInRange = 784 <= x && x <= 904
-        const yInRange = 590.8 + uiShift <= y && y <= 640.8 + uiShift
+        const xInRange = 784.0 + uiShift[0] <= x && x <= 904.0 + uiShift[0]
+        const yInRange = 590.8 + uiShift[1] <= y && y <= 640.8 + uiShift[1]
 
         return xInRange && yInRange
       }
@@ -133,12 +133,12 @@ function createViewsForIntro(ctx) {
       onHover ? stroke(169, 29, 58) : stroke(39, 55, 77)
       strokeWeight(2)
       rectMode(CENTER)
-      rect(844, 615.8 + uiShift, 120, 50)
+      rect(844.0 + uiShift[0], 615.8 + uiShift[1], 120, 50)
 
       strokeWeight(1.6)
       textAlign(CENTER, CENTER)
       textSize(24)
-      text(buttonText, 844, 611.8 + uiShift)
+      text(buttonText, 844.0 + uiShift[0], 611.8 + uiShift[1])
 
       if (onHover && mouseIsPressed) {
         c.socket.sendMessage({ opcode: 'kill-server' })
@@ -163,7 +163,7 @@ function createViewsForOncam(ctx) {
       strokeWeight(1.6)
       textAlign(CENTER, TOP)
       textSize(32)
-      text(messageText, 764, 430 + uiShift)
+      text(messageText, 764.0 + uiShift[0], 430.0 + uiShift[1])
     }
   )
 
@@ -191,7 +191,7 @@ function createViewsForGame(ctx) {
       strokeWeight(1.6)
       textAlign(LEFT, TOP)
       textSize(20)
-      text(timeText, 36, 36 + uiShift)
+      text(timeText, 36.0 + uiShift[0], 36.0 + uiShift[1])
 
       if (timeRemain == 0) {
         c.states.setFutureState(c.states.states.CLOSE)
@@ -212,7 +212,7 @@ function createViewsForGame(ctx) {
       strokeWeight(1.6)
       textAlign(RIGHT, TOP)
       textSize(20)
-      text(scoreText, 1492, 36 + uiShift)
+      text(scoreText, 1492.0 + uiShift[0], 36.0 + uiShift[1])
     }
   )
 
@@ -233,7 +233,7 @@ function createViewsForClose(ctx) {
       strokeWeight(1.6)
       textAlign(CENTER, TOP)
       textSize(32)
-      text(messageText, 764, 430 + uiShift)
+      text(messageText, 764.0 + uiShift[0], 430.0 + uiShift[1])
     }
   )
 
@@ -255,12 +255,12 @@ function createViewsForOutro(ctx) {
       strokeWeight(2.0)
       textAlign(CENTER, TOP)
       textSize(48)
-      text(congratsText, 764, 258 + uiShift)
+      text(congratsText, 764.0 + uiShift[0], 258.0 + uiShift[1])
 
       stroke(39, 55, 77)
       strokeWeight(1.6)
       textSize(28)
-      text(scoreText, 764, 344 + uiShift)
+      text(scoreText, 764.0 + uiShift[0], 344.0 + uiShift[1])
     }
   )
 
@@ -277,8 +277,8 @@ function createViewsForOutro(ctx) {
         x = x / scaling
         y = y / scaling
 
-        const xInRange = 664 <= x && x <= 864
-        const yInRange = 559.8 + uiShift <= y && y <= 609.8 + uiShift
+        const xInRange = 664.0 + uiShift[0] <= x && x <= 864.0 + uiShift[0]
+        const yInRange = 559.8 + uiShift[1] <= y && y <= 609.8 + uiShift[1]
 
         return xInRange && yInRange
       }
@@ -292,12 +292,12 @@ function createViewsForOutro(ctx) {
       }
       strokeWeight(2)
       rectMode(CENTER)
-      rect(764, 584.8 + uiShift, 200, 50)
+      rect(764.0 + uiShift[0], 584.8 + uiShift[1], 200, 50)
 
       strokeWeight(1.6)
       textAlign(CENTER, CENTER)
       textSize(24)
-      text(buttonText, 764, 580.8 + uiShift)
+      text(buttonText, 764.0 + uiShift[0], 580.8 + uiShift[1])
 
       if (onHover && mouseIsPressed) {
         c.states.setFutureState(c.states.states.INTRO)
@@ -345,13 +345,27 @@ function configureSocket(ctx) {
 
 function configureScreen(ctx) {
   // Scale properly so that the ui components can adapt to different screen size
-  const scaling = windowWidth / 1528
-  context.values.add('ui-scale', scaling)
-
   // Specifically, all components are placed in a 16:9 area centered on screen
-  const idealHeight = windowWidth / 16 * 9
-  const uiShift = (windowHeight - idealHeight) / 2
-  context.values.add('ui-shift', uiShift / scaling)
+  const targetAspectRatio = 16 / 9
+  const actualAspectRatio = windowWidth / windowHeight
+
+  if (actualAspectRatio >= targetAspectRatio) {
+    // Actual screen is wider than target: shift x, keep y
+    const scaling = windowHeight / 860
+    context.values.add('ui-scale', scaling)
+
+    const idealWidth = windowHeight * targetAspectRatio
+    const uiShiftX = (windowWidth - idealWidth) / 2
+    context.values.add('ui-shift', [uiShiftX / scaling, 0.0])
+  } else {
+    // Actual screen is narrower than target: shift y, keep x
+    const scaling = windowWidth / 1528
+    context.values.add('ui-scale', scaling)
+
+    const idealHeight = windowWidth / targetAspectRatio
+    const uiShiftY = (windowHeight - idealHeight) / 2
+    context.values.add('ui-shift', [0.0, uiShiftY / scaling])
+  }
 }
 
 
