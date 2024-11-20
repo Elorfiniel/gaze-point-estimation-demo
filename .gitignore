@@ -9,10 +9,6 @@ __pycache__
 bundle/*
 !bundle/.gitkeep
 
-# ignore temporary files for debugging
-sketch/client.html
-sketch/client.js
-
 # ignore everything except assets README
 sketch/assets/*
 !sketch/assets/README.md
