@@ -5,7 +5,7 @@ function setup() {
   createCanvas(windowWidth, windowHeight, P2D, context.canvas)
 
   context.space = new Space(80)
-  context.game = new GameSystem(windowWidth / 2, -2)
+  context.game = new GameSystem(windowWidth / 2, -2, 'gaze')
 }
 
 function draw() {

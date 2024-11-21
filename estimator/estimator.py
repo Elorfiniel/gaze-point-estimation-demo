@@ -38,7 +38,7 @@ def camera_handler(model, camera_id,
                    pv_mode='none', pv_window='preview',
                    pv_items=['frame', 'gaze', 'time', 'warn'],
                    gx_filt_params=dict(), gy_filt_params=dict(),
-                   server_params=None):
+                   server_params=None, **extra_kwargs):
   server_mode = server_params is not None and isinstance(server_params, dict)
 
   if server_mode:
@@ -180,13 +180,14 @@ def camera_process(config, record_path, save_queue,
 
 
 
-async def server_hello(websocket, config, record_mode):
+async def server_hello(websocket, config, record_mode, game_settings):
   # Send "server-on" to notify the client
   await websocket_send_json(websocket, {
     'status': 'server-on',
     'topleftOffset': config['topleft_offset'],
     'screenSizeCm': config['screen_size_cm'],
     'recordMode': record_mode,
+    'gameSettings': game_settings,
   })
 
 async def handle_message(message, websocket, camera_status, **kwargs):
@@ -282,8 +283,8 @@ async def server_process(websocket, stop_future, config_path, record_mode, recor
   config = load_toml_secure(config_path)
   config['__config_path'] = config_path
 
-  # Send "server-on" to notify the client
-  await server_hello(websocket, config, record_mode)
+  # Send "server-on" packet to notify the client
+  await server_hello(websocket, config, record_mode, config.pop('game_settings'))
 
   camera_status = {}
   server_alive = True
@@ -354,6 +355,8 @@ def main_procedure_preview(cmdargs: argparse.Namespace):
   config = load_toml_secure(config_path)
   # Load estimator checkpoint from file system
   model = load_model(config_path, config.pop('checkpoint'))
+  # Drop extra kwargs used in server mode
+  config.pop('game_settings', None)
   # Handle control to camera preview
   camera_handler(model, **config)
 

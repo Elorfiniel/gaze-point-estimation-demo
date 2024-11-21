@@ -176,24 +176,29 @@ function createViewsForGame(ctx) {
     ctx,
     (c) => {
       const uiShift = c.values.get('ui-shift')
-      const maxTime = c.values.get('game-time')
-      const start = c.values.get('game-start')
+      const settings = ctx.values.get('settings')
 
-      const timePast = Math.floor(((new Date()).getTime() - start.getTime()) / 1000)
+      let message = '剩余', remain = 0
 
-      let timeRemain = maxTime - timePast
-      timeRemain = timeRemain < 0 ? 0 : timeRemain
-
-      const timeText = `剩余时间：${timeRemain}s`
+      if (settings.countdown == 'seconds') {
+        const start = c.values.get('game-start')
+        const past = Math.floor(((new Date()).getTime() - start.getTime()) / 1000)
+        remain = settings.value < past ? 0 : settings.value - past
+        message += `时间：${remain}s`
+      }
+      if (settings.countdown == 'targets') {
+        remain = settings.value - c.game.getGameScore()
+        message += `敌机：${remain}`
+      }
 
       noFill()
       stroke(39, 55, 77)
       strokeWeight(1.6)
       textAlign(LEFT, TOP)
       textSize(20)
-      text(timeText, 36.0 + uiShift[0], 36.0 + uiShift[1])
+      text(message, 36.0 + uiShift[0], 36.0 + uiShift[1])
 
-      if (timeRemain == 0) {
+      if (remain == 0) {
         c.states.setFutureState(c.states.states.CLOSE)
       }
     }
@@ -323,8 +328,7 @@ function configureSocket(ctx) {
       ctx.display.setScreenSize(screen.height, screen.width)
 
       ctx.values.add('record-mode', msgObj.recordMode)
-      const gameTime = msgObj.recordMode ? 90 : 60
-      ctx.values.add('game-time', gameTime)
+      ctx.values.add('settings', msgObj.gameSettings)
     }
 
     if (msgObj.status == 'camera-on') {
@@ -530,10 +534,12 @@ function actOnSwitchToOncam(ctx) {
 }
 
 function actOnSwitchToGame(ctx) {
-  ctx.game = new GameSystem(windowWidth / 2, -2)
+  const settings = ctx.values.get('settings')
+  ctx.game = new GameSystem(windowWidth / 2, -2, settings.aiming)
 
-  const startTime = new Date()
-  ctx.values.add('game-start', startTime)
+  if (settings.countdown == 'seconds') {
+    ctx.values.add('game-start', new Date())
+  }
 }
 
 function actOnSwitchToClose(ctx) {

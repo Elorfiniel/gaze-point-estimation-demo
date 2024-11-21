@@ -31,3 +31,9 @@ pv_items = ['frame', 'gaze', 'time', 'warn']
 # Configuration for One-Euro filters
 gx_filt_params = { beta = 0.01, min_cutoff = 0.02, d_cutoff = 1.2, clock = true }
 gy_filt_params = { beta = 0.01, min_cutoff = 0.02, d_cutoff = 1.2, clock = true }
+
+# Settings for gaze shooting game, used for server hello packet
+#   1. Countdown mode: seconds, targets
+#   2. Countdown value
+#   3. Aiming mode: gaze, hard
+game_settings = { countdown = 'seconds', value = 90, aiming = 'gaze' }

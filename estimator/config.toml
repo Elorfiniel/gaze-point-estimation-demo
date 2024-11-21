@@ -9,6 +9,12 @@ topleft_offset = [-15.5, -0.5]
 screen_size_px = [1080, 1920]
 screen_size_cm = [17.4, 31.0]
 
+# Settings for gaze shooting game, used for server hello packet
+#   1. Countdown mode: seconds, targets
+#   2. Countdown value
+#   3. Aiming mode: gaze, hard
+game_settings = { countdown = 'seconds', value = 90, aiming = 'gaze' }
+
 # The path to store the recordings, set to enable record mode
 #   Note: use an absolute path, or a relative path to the bootstrap EXE
 # record_path = 'demo-capture'
