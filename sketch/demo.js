@@ -356,19 +356,19 @@ function configureScreen(ctx) {
   if (actualAspectRatio >= targetAspectRatio) {
     // Actual screen is wider than target: shift x, keep y
     const scaling = windowHeight / 860
-    context.values.add('ui-scale', scaling)
+    ctx.values.add('ui-scale', scaling)
 
     const idealWidth = windowHeight * targetAspectRatio
     const uiShiftX = (windowWidth - idealWidth) / 2
-    context.values.add('ui-shift', [uiShiftX / scaling, 0.0])
+    ctx.values.add('ui-shift', [uiShiftX / scaling, 0.0])
   } else {
     // Actual screen is narrower than target: shift y, keep x
     const scaling = windowWidth / 1528
-    context.values.add('ui-scale', scaling)
+    ctx.values.add('ui-scale', scaling)
 
     const idealHeight = windowWidth / targetAspectRatio
     const uiShiftY = (windowHeight - idealHeight) / 2
-    context.values.add('ui-shift', [0.0, uiShiftY / scaling])
+    ctx.values.add('ui-shift', [0.0, uiShiftY / scaling])
   }
 }
 
@@ -443,23 +443,33 @@ function drawWhenGame(ctx) {
   ctx.space.draw()
   ctx.game.draw()
 
-  if (nextReady == true) {
-    if (recordMode == true) {
-      const enemy = ctx.game.getAimedEnemy()
+  if (nextReady == true && recordMode == true) {
+    /**
+     * Send ground truth (PoG) of current frame to the server
+     * Based on the assumption of "fast client, slow server"
+     *
+     * Current implementation uses a local websocket connection
+     *
+     * The only overhead that may cause a lag is the time to do
+     * inference (eg. calculate PoG) on the server side
+     *
+     * However, the influence of this lag is very small, due to
+     * the fact that the target (eg. enemy) stays still
+     */
+    const enemy = ctx.game.getAimedEnemy()
 
-      if (enemy !== undefined) {
-        const screenXY = ctx.display.canvas2screen(enemy.x, enemy.y, xUpdate, yUpdate)
-        const actualXY = ctx.display.screen2actual(screenXY[0], screenXY[1])
+    if (enemy !== undefined) {
+      const screenXY = ctx.display.canvas2screen(enemy.x, enemy.y, xUpdate, yUpdate)
+      const actualXY = ctx.display.screen2actual(screenXY[0], screenXY[1])
 
-        ctx.socket.sendMessage({
-          opcode: 'save-gaze',
-          tid: gaze[2],
-          gaze_x: nextValid ? gaze[0] : 0,
-          gaze_y: nextValid ? gaze[1] : 0,
-          label_x: actualXY[0],
-          label_y: actualXY[1],
-        })
-      }
+      ctx.socket.sendMessage({
+        opcode: 'save-gaze',
+        tid: gaze[2],
+        gaze_x: nextValid ? gaze[0] : 0,
+        gaze_y: nextValid ? gaze[1] : 0,
+        label_x: actualXY[0],
+        label_y: actualXY[1],
+      })
     }
   }
 

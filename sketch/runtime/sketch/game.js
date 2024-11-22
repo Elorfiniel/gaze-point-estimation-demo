@@ -12,6 +12,16 @@ function calculateRotation(x, y, cx, cy) {
   return ang
 }
 
+function aimingStateUpdate(change, initFn, resetFn, updateFn) {
+  if (change.init) {
+    initFn()    // Initialize tracking record
+  } else if (change.drop || change.kill) {
+    resetFn()   // Reset tracking record
+  } else {
+    updateFn()  // Update tracking record
+  }
+}
+
 
 /**
  * Class definitions.
@@ -82,7 +92,7 @@ class Enemy {
 }
 
 
-class GazeAiming {
+class PoGAiming {
   constructor() {
     this.limit = 120
     this.saveThres = 0.20
@@ -134,7 +144,7 @@ class GazeAiming {
   }
 }
 
-class HardAiming {
+class KeyAiming {
   constructor() {
     this.limit = 120
     this.saveThres = 0.40
@@ -194,11 +204,69 @@ class HardAiming {
   }
 }
 
+class KeyPoGAiming {
+  constructor() {
+    this.strategy = undefined
+    this.value = 0
+  }
+
+  cannonUpdate(status) {
+    return this.strategy !== undefined && this.strategy.cannonUpdate(status)
+  }
+
+  draw(enemyX, enemyY, value) {
+    if (this.strategy !== undefined) {
+      this.strategy.draw(enemyX, enemyY, this.value)
+    }
+  }
+
+  switchAimingStrategy(status) {
+    let newStartegy = undefined
+
+    if (this.strategy === undefined) {
+      newStartegy = status.spacebar ? new KeyAiming() :
+        (status.glared ? new PoGAiming() : undefined)
+    } else if (status.spacebar && this.strategy instanceof PoGAiming) {
+      newStartegy = new KeyAiming()
+    }
+
+    if (newStartegy !== undefined) {
+      this.strategy = newStartegy
+      this.value = 0
+    }
+  }
+
+  update(status, track, value) {
+    this.switchAimingStrategy(status)
+
+    let retval = {init: false, value: 0, drop: false, kill: false}
+
+    if (this.strategy !== undefined) {
+      const change = this.strategy.update(status, track, this.value)
+
+      aimingStateUpdate(
+        change,
+        () => { retval.init = change.init },
+        () => {
+          retval.drop = change.drop
+          this.strategy = undefined
+          this.value = 0
+        },
+        () => { this.value = change.value }
+      )
+      retval.kill = change.kill
+    }
+
+    return retval
+  }
+}
+
 class Aiming {
   constructor(strategy) {
     const strategies = {
-      'gaze': GazeAiming,
-      'hard': HardAiming
+      'pog': PoGAiming,
+      'key': KeyAiming,
+      'key+pog': KeyPoGAiming
     }
     this.strategy = new strategies[strategy]()
     this.resetRecord()
@@ -217,7 +285,7 @@ class Aiming {
   }
 
   cannonUpdate(status) {
-    return this.strategy.cannonUpdate(status)
+    return this.record.track && this.strategy.cannonUpdate(status)
   }
 
   draw(enemyX, enemyY) {
@@ -231,13 +299,12 @@ class Aiming {
       status, this.record.track, this.record.value
     )
 
-    if (change.init) {
-      this.record.track = true
-    } else if (change.drop || change.kill) {
-      this.resetRecord()
-    } else {
-      this.record.value = change.value
-    }
+    aimingStateUpdate(
+      change,
+      () => { this.record.track = true },
+      () => { this.resetRecord() },
+      () => { this.record.value = change.value }
+    )
 
     return change.kill
   }
