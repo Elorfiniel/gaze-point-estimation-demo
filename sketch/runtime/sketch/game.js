@@ -18,7 +18,8 @@ function buildAiming(aiming) {
     'key': KeyAiming,
     'key+pog': KeyPoGAiming
   }
-  return new strategies[aiming]()
+  const strategy = new strategies[aiming]()
+  return new Aiming(strategy)
 }
 
 
