@@ -187,12 +187,7 @@ class KeyPoGAiming {
 
 class Aiming {
   constructor(strategy) {
-    const strategies = {
-      'pog': PoGAiming,
-      'key': KeyAiming,
-      'key+pog': KeyPoGAiming
-    }
-    this.strategy = new strategies[strategy]()
+    this.strategy = strategy
     this.resetRecord()
   }
 

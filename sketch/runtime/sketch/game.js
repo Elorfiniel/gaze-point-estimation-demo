@@ -12,6 +12,15 @@ function calculateRotation(x, y, cx, cy) {
   return ang
 }
 
+function buildAiming(aiming) {
+  const strategies = {
+    'pog': PoGAiming,
+    'key': KeyAiming,
+    'key+pog': KeyPoGAiming
+  }
+  return new strategies[aiming]()
+}
+
 
 /**
  * Game system: eye gaze shooting game.
@@ -34,7 +43,7 @@ class GameSystem {
     this.explosionMinDensity = 28
     this.explosionMaxDensity = 42
 
-    this.aiming = new Aiming(aiming)
+    this.aiming = buildAiming(aiming)
   }
 
   getGameScore() {
