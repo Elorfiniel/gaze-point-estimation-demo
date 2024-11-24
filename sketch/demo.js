@@ -32,7 +32,7 @@ function createViewsForIntro(ctx) {
     ctx,
     (c) => {
       const recordMode = c.values.get('record-mode')
-      const uiShift = c.values.get('ui-shift')
+      const [uiShiftX, uiShiftY] = c.values.get('ui-shift')
 
       const warnIntro = '[  摄  像  头  调  用  说  明  ]'
       const warnContent = '请注意，本游戏在运行过程中需要调用摄像头拍摄您的面部图像。' +
@@ -52,20 +52,20 @@ function createViewsForIntro(ctx) {
       stroke(39, 55, 77)
       strokeWeight(2)
       rectMode(CENTER)
-      rect(764.0 + uiShift[0], 430.0 + uiShift[1], 774, 516)
+      rect(764.0 + uiShiftX, 430.0 + uiShiftY, 774, 516)
 
       stroke(169, 29, 58)
       strokeWeight(1.6)
       textSize(32)
-      text(warnIntro, 764.0 + uiShift[0], 208.0 + uiShift[1])
+      text(warnIntro, 764.0 + uiShiftX, 208.0 + uiShiftY)
 
       stroke(39, 55, 77)
       strokeWeight(1.6)
       textSize(24)
       textWrap(CHAR)
       textLeading(40)
-      text(warnContent, 764.0 + uiShift[0], 502.0 + uiShift[1], 714, 456)
-      text(noteContent, 764.0 + uiShift[0], 718.0 + uiShift[1], 714, 456)
+      text(warnContent, 764.0 + uiShiftX, 502.0 + uiShiftY, 714, 456)
+      text(noteContent, 764.0 + uiShiftX, 718.0 + uiShiftY, 714, 456)
     }
   )
 
@@ -73,7 +73,7 @@ function createViewsForIntro(ctx) {
     'start-button',
     ctx,
     (c) => {
-      const uiShift = c.values.get('ui-shift')
+      const [uiShiftX, uiShiftY] = c.values.get('ui-shift')
       const scaling = c.values.get('ui-scale')
 
       const buttonText = '开  始'
@@ -82,8 +82,8 @@ function createViewsForIntro(ctx) {
         x = x / scaling
         y = y / scaling
 
-        const xInRange = 624.0 + uiShift[0] <= x && x <= 744.0 + uiShift[0]
-        const yInRange = 590.8 + uiShift[1] <= y && y <= 640.8 + uiShift[1]
+        const xInRange = 624.0 + uiShiftX <= x && x <= 744.0 + uiShiftX
+        const yInRange = 590.8 + uiShiftY <= y && y <= 640.8 + uiShiftY
 
         return xInRange && yInRange
       }
@@ -93,12 +93,12 @@ function createViewsForIntro(ctx) {
       onHover ? stroke(169, 29, 58) : stroke(39, 55, 77)
       strokeWeight(2)
       rectMode(CENTER)
-      rect(684.0 + uiShift[0], 615.8 + uiShift[1], 120, 50)
+      rect(684.0 + uiShiftX, 615.8 + uiShiftY, 120, 50)
 
       strokeWeight(1.6)
       textAlign(CENTER, CENTER)
       textSize(24)
-      text(buttonText, 684.0 + uiShift[0], 611.8 + uiShift[1])
+      text(buttonText, 684.0 + uiShiftX, 611.8 + uiShiftY)
 
       if (onHover && mouseIsPressed) {
         c.states.setFutureState(c.states.states.ONCAM)
@@ -113,7 +113,7 @@ function createViewsForIntro(ctx) {
     'exit-button',
     ctx,
     (c) => {
-      const uiShift = c.values.get('ui-shift')
+      const [uiShiftX, uiShiftY] = c.values.get('ui-shift')
       const scaling = c.values.get('ui-scale')
 
       const buttonText = '退  出'
@@ -122,8 +122,8 @@ function createViewsForIntro(ctx) {
         x = x / scaling
         y = y / scaling
 
-        const xInRange = 784.0 + uiShift[0] <= x && x <= 904.0 + uiShift[0]
-        const yInRange = 590.8 + uiShift[1] <= y && y <= 640.8 + uiShift[1]
+        const xInRange = 784.0 + uiShiftX <= x && x <= 904.0 + uiShiftX
+        const yInRange = 590.8 + uiShiftY <= y && y <= 640.8 + uiShiftY
 
         return xInRange && yInRange
       }
@@ -133,12 +133,12 @@ function createViewsForIntro(ctx) {
       onHover ? stroke(169, 29, 58) : stroke(39, 55, 77)
       strokeWeight(2)
       rectMode(CENTER)
-      rect(844.0 + uiShift[0], 615.8 + uiShift[1], 120, 50)
+      rect(844.0 + uiShiftX, 615.8 + uiShiftY, 120, 50)
 
       strokeWeight(1.6)
       textAlign(CENTER, CENTER)
       textSize(24)
-      text(buttonText, 844.0 + uiShift[0], 611.8 + uiShift[1])
+      text(buttonText, 844.0 + uiShiftX, 611.8 + uiShiftY)
 
       if (onHover && mouseIsPressed) {
         c.socket.sendMessage({ opcode: 'kill-server' })
@@ -156,14 +156,14 @@ function createViewsForOncam(ctx) {
     (c) => {
       const messageText = '[  请  等  待  摄  像  头  开  启  ]'
 
-      const uiShift = c.values.get('ui-shift')
+      const [uiShiftX, uiShiftY] = c.values.get('ui-shift')
 
       noFill()
       stroke(169, 29, 58)
       strokeWeight(1.6)
       textAlign(CENTER, TOP)
       textSize(32)
-      text(messageText, 764.0 + uiShift[0], 430.0 + uiShift[1])
+      text(messageText, 764.0 + uiShiftX, 430.0 + uiShiftY)
     }
   )
 
@@ -175,7 +175,7 @@ function createViewsForGame(ctx) {
     'count-down',
     ctx,
     (c) => {
-      const uiShift = c.values.get('ui-shift')
+      const [uiShiftX, uiShiftY] = c.values.get('ui-shift')
       const settings = ctx.values.get('settings')
 
       let message = '剩余', remain = 0
@@ -196,7 +196,7 @@ function createViewsForGame(ctx) {
       strokeWeight(1.6)
       textAlign(LEFT, TOP)
       textSize(20)
-      text(message, 36.0 + uiShift[0], 36.0 + uiShift[1])
+      text(message, 36.0 + uiShiftX, 36.0 + uiShiftY)
 
       if (remain == 0) {
         c.states.setFutureState(c.states.states.CLOSE)
@@ -208,7 +208,7 @@ function createViewsForGame(ctx) {
     'score-board',
     ctx,
     (c) => {
-      const uiShift = c.values.get('ui-shift')
+      const [uiShiftX, uiShiftY] = c.values.get('ui-shift')
 
       const scoreText = `击落敌机：${c.game.getGameScore()}`
 
@@ -217,7 +217,7 @@ function createViewsForGame(ctx) {
       strokeWeight(1.6)
       textAlign(RIGHT, TOP)
       textSize(20)
-      text(scoreText, 1492.0 + uiShift[0], 36.0 + uiShift[1])
+      text(scoreText, 1492.0 + uiShiftX, 36.0 + uiShiftY)
     }
   )
 
@@ -231,14 +231,14 @@ function createViewsForClose(ctx) {
     (c) => {
       const messageText = '[  请  等  待  摄  像  头  关  闭  ]'
 
-      const uiShift = c.values.get('ui-shift')
+      const [uiShiftX, uiShiftY] = c.values.get('ui-shift')
 
       noFill()
       stroke(169, 29, 58)
       strokeWeight(1.6)
       textAlign(CENTER, TOP)
       textSize(32)
-      text(messageText, 764.0 + uiShift[0], 430.0 + uiShift[1])
+      text(messageText, 764.0 + uiShiftX, 430.0 + uiShiftY)
     }
   )
 
@@ -250,7 +250,7 @@ function createViewsForOutro(ctx) {
     'congrats',
     ctx,
     (c) => {
-      const uiShift = c.values.get('ui-shift')
+      const [uiShiftX, uiShiftY] = c.values.get('ui-shift')
 
       const congratsText = 'C  O  N  G  R  A  T  U  L  A  T  I  O  N'
       const scoreText = `您总共击落敌机 ${c.game.getGameScore()} 架`
@@ -260,12 +260,12 @@ function createViewsForOutro(ctx) {
       strokeWeight(2.0)
       textAlign(CENTER, TOP)
       textSize(48)
-      text(congratsText, 764.0 + uiShift[0], 258.0 + uiShift[1])
+      text(congratsText, 764.0 + uiShiftX, 258.0 + uiShiftY)
 
       stroke(39, 55, 77)
       strokeWeight(1.6)
       textSize(28)
-      text(scoreText, 764.0 + uiShift[0], 344.0 + uiShift[1])
+      text(scoreText, 764.0 + uiShiftX, 344.0 + uiShiftY)
     }
   )
 
@@ -273,7 +273,7 @@ function createViewsForOutro(ctx) {
     'restart-button',
     ctx,
     (c) => {
-      const uiShift = c.values.get('ui-shift')
+      const [uiShiftX, uiShiftY] = c.values.get('ui-shift')
       const scaling = c.values.get('ui-scale')
 
       const buttonText = '重  新  开  始'
@@ -282,8 +282,8 @@ function createViewsForOutro(ctx) {
         x = x / scaling
         y = y / scaling
 
-        const xInRange = 664.0 + uiShift[0] <= x && x <= 864.0 + uiShift[0]
-        const yInRange = 559.8 + uiShift[1] <= y && y <= 609.8 + uiShift[1]
+        const xInRange = 664.0 + uiShiftX <= x && x <= 864.0 + uiShiftX
+        const yInRange = 559.8 + uiShiftY <= y && y <= 609.8 + uiShiftY
 
         return xInRange && yInRange
       }
@@ -297,12 +297,12 @@ function createViewsForOutro(ctx) {
       }
       strokeWeight(2)
       rectMode(CENTER)
-      rect(764.0 + uiShift[0], 584.8 + uiShift[1], 200, 50)
+      rect(764.0 + uiShiftX, 584.8 + uiShiftY, 200, 50)
 
       strokeWeight(1.6)
       textAlign(CENTER, CENTER)
       textSize(24)
-      text(buttonText, 764.0 + uiShift[0], 580.8 + uiShift[1])
+      text(buttonText, 764.0 + uiShiftX, 580.8 + uiShiftY)
 
       if (onHover && mouseIsPressed) {
         c.states.setFutureState(c.states.states.INTRO)
@@ -323,8 +323,10 @@ function configureSocket(ctx) {
     const allStates = ctx.states.allStates()
 
     if (msgObj.status == 'server-on') {
-      ctx.display.setScreenOrigin(msgObj.topleftOffset[0], msgObj.topleftOffset[1])
-      ctx.display.setActualSize(msgObj.screenSizeCm[0], msgObj.screenSizeCm[1])
+      const [cx, cy] = msgObj.topleftOffset
+      ctx.display.setScreenOrigin(cx, cy)
+      const [ah, aw] = msgObj.screenSizeCm
+      ctx.display.setActualSize(ah, aw)
       ctx.display.setScreenSize(screen.height, screen.width)
 
       ctx.values.add('record-mode', msgObj.recordMode)
@@ -423,20 +425,20 @@ function drawWhenOncam(ctx) {
 }
 
 function drawWhenGame(ctx) {
-  let gazeXY = undefined
+  let [aimX, aimY] = [undefined, undefined]
   const spacebar = keyIsPressed && keyCode == 32
 
   const gameViews = ctx.values.get('game-views')
   const recordMode = ctx.values.get('record-mode')
-  const gaze = ctx.values.get('gaze')
+  const [gx, gy, tid] = ctx.values.get('gaze')
   const nextReady = ctx.values.pop('next-ready')
   const nextValid = ctx.values.get('next-valid')
 
   const xUpdate = screenLeft - ctx.values.get('init-outer-x')
   const yUpdate = screenTop - ctx.values.get('init-outer-y')
   if (nextValid == true) {
-    const screenXY = ctx.display.actual2screen(gaze[0], gaze[1])
-    gazeXY = ctx.display.screen2canvas(screenXY[0], screenXY[1], xUpdate, yUpdate)
+    const [sx, sy] = ctx.display.actual2screen(gx, gy)
+    [aimX, aimY] = ctx.display.screen2canvas(sx, sy, xUpdate, yUpdate)
   }
 
   background(221, 230, 237)
@@ -459,24 +461,20 @@ function drawWhenGame(ctx) {
     const enemy = ctx.game.getAimedEnemy()
 
     if (enemy !== undefined) {
-      const screenXY = ctx.display.canvas2screen(enemy.x, enemy.y, xUpdate, yUpdate)
-      const actualXY = ctx.display.screen2actual(screenXY[0], screenXY[1])
+      const [sx, sy] = ctx.display.canvas2screen(enemy.x, enemy.y, xUpdate, yUpdate)
+      const [ax, ay] = ctx.display.screen2actual(sx, sy)
 
       ctx.socket.sendMessage({
         opcode: 'save-gaze',
-        tid: gaze[2],
-        gaze_x: nextValid ? gaze[0] : 0,
-        gaze_y: nextValid ? gaze[1] : 0,
-        label_x: actualXY[0],
-        label_y: actualXY[1],
+        tid: tid,
+        gaze_x: nextValid ? gx : 0,
+        gaze_y: nextValid ? gy : 0,
+        label_x: ax, label_y: ay,
       })
     }
   }
 
   drawViewsForState(ctx, gameViews)
-
-  const aimX = nextValid ? gazeXY[0] : undefined
-  const aimY = nextValid ? gazeXY[1] : undefined
 
   ctx.space.update()
   ctx.game.update(aimX, aimY, spacebar, nextValid)
