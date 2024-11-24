@@ -22,6 +22,23 @@ function buildAiming(aiming) {
   return new Aiming(strategy)
 }
 
+function buildEnemyEmitter(emitter) {
+  const emitters = {
+    'demo': () => {
+      const generator = new QuadraticScatterGenerator(
+        -8 * windowHeight / (15 * pow(windowWidth, 2)),
+        8 * windowHeight / (15 * windowWidth),
+        0.24 * windowHeight,
+        0.12 * windowWidth,
+        0,
+        0.12 * windowWidth,
+      )
+      return new EnemyEmitter(generator)
+    }
+  }
+  return emitters[emitter]()
+}
+
 
 /**
  * Game system: eye gaze shooting game.
@@ -45,6 +62,7 @@ class GameSystem {
     this.explosionMaxDensity = 42
 
     this.aiming = buildAiming(aiming)
+    this.emitter = buildEnemyEmitter('demo')
   }
 
   getGameScore() {
@@ -114,7 +132,7 @@ class GameSystem {
       let newEnemy = undefined
 
       for (let i = 0; newEnemy === undefined && i < maxTrials; i++) {
-        let tempEnemy = new Enemy()
+        let tempEnemy = this.emitter.emit()
 
         if (avoid_corpse == true && this.enemyCorpse !== undefined) {
           const collide = this.cannonNeighbors(

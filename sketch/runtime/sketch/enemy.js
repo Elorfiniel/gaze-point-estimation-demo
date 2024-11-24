@@ -1,24 +1,14 @@
 /**
- * Enemy definition and emitter.
+ * Enemy and EnemyEmitter.
  */
 class Enemy {
-  constructor() {
-    const minX = 0.12 * windowWidth
-    const maxX = windowWidth - minX
+  constructor(startX, startY, endX, endY) {
+    this.x = startX
+    this.y = startY
+    this.endX = endX
+    this.endY = endY
 
-    this.x = minX + (maxX - minX) * Math.random()
-    this.y = windowHeight + random(40, 60)
     this.r = 0.2 * HALF_PI * (Math.random() - 0.5)
-
-    const quadA = -8 * windowHeight / (15 * pow(windowWidth, 2))
-    const quadB = 8 * windowHeight / (15 * windowWidth)
-    const quadC = 0.24 * windowHeight
-
-    const minY = quadA * pow(this.x, 2) + quadB * this.x + quadC
-    const maxY = windowHeight - 40
-
-    this.endX = this.x
-    this.endY = minY + (maxY - minY) * Math.random()
     this.endR = 0.1 * HALF_PI * (Math.random() - 0.5)
 
     this.moveLifespan = random(4, 8)
@@ -63,5 +53,66 @@ class Enemy {
       this.y += this.deltaY
       this.r += this.deltaR
     }
+  }
+}
+
+class EnemyEmitter {
+  constructor(generator) {
+    this.generator = generator
+  }
+
+  emit() {
+    const [sx, sy, ex, ey] = this.generator.gen()
+    return new Enemy(sx, sy, ex, ey)
+  }
+}
+
+
+/**
+ * Generate random positions within the given rectangle.
+ */
+class RectScatterGenerator {
+  constructor(padT = 0, padL = 0, padB = 0, padR = 0) {
+    this.minX = padL
+    this.maxX = windowWidth - padR
+    this.minY = padT
+    this.maxY = windowHeight - padB
+  }
+
+  gen() {
+    const sx = this.minX + (this.maxX - this.minX) * Math.random()
+    const ex = sx
+
+    const sy = windowHeight + random(40, 60)
+    const ey = this.minY + (this.maxY - this.minY) * Math.random()
+
+    return [sx, sy, ex, ey]
+  }
+}
+
+/**
+ * Generate random positions between the given quadratic curve
+ * and the bottom of the screen. In other words:
+ *   y_min(x) = Ax^2 + Bx + C <= y <= y_max(x) = windowHeight
+ */
+class QuadraticScatterGenerator {
+  constructor(A, B, C, padL = 0, padB = 0, padR = 0) {
+    this.coefs = [A, B, C]
+    this.minX = padL
+    this.maxX = windowWidth - padR
+    this.maxY = windowHeight - padB
+  }
+
+  gen() {
+    const [A, B, C] = this.coefs
+
+    const sx = this.minX + (this.maxX - this.minX) * Math.random()
+    const ex = sx
+
+    const minY = A * pow(sx, 2) + B * sx + C
+    const sy = windowHeight + random(40, 60)
+    const ey = minY + (this.maxY - minY) * Math.random()
+
+    return [sx, sy, ex, ey]
   }
 }
