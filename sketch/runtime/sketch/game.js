@@ -174,9 +174,9 @@ class ExplosionFragments {
     rotate(this.r)
     scale(this.s)
 
-    const rgb = this.randomColor()
+    const [R, G, B] = this.randomColor()
 
-    fill(rgb[0], rgb[1], rgb[2])
+    fill(R, G, B)
     stroke(39, 55, 77)
     strokeWeight(2.0)
 
