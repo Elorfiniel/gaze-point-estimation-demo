@@ -13,7 +13,12 @@ screen_size_cm = [17.4, 31.0]
 #   1. Countdown mode: seconds, targets
 #   2. Countdown value
 #   3. Aiming mode: pog, key, key+pog
-game_settings = { countdown = 'seconds', value = 90, aiming = 'pog' }
+#   4. EnemyEmitter configs: name and extra arguments
+[game_settings]
+countdown = 'seconds'
+value = 90
+aiming = 'pog'
+emitter = { name = 'demo' }
 
 # The path to store the recordings, set to enable record mode
 #   Note: use an absolute path, or a relative path to the bootstrap EXE

@@ -543,7 +543,7 @@ function actOnSwitchToOncam(ctx) {
 
 function actOnSwitchToGame(ctx) {
   const settings = ctx.values.get('settings')
-  ctx.game = new GameSystem(windowWidth / 2, -2, settings.aiming)
+  ctx.game = new GameSystem(windowWidth / 2, -2, settings.aiming, settings.emitter)
 
   if (settings.countdown == 'seconds') {
     ctx.values.add('game-start', new Date())

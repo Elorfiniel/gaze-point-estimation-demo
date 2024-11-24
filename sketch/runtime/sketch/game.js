@@ -23,20 +23,40 @@ function buildAiming(aiming) {
 }
 
 function buildEnemyEmitter(emitter) {
-  const emitters = {
-    'demo': () => {
-      const generator = new QuadraticScatterGenerator(
+  const emitterConfig = Object.entries(emitter).filter(([k, v]) => k != 'name')
+  const generatorArgs = Object.fromEntries(emitterConfig)
+
+  const generators = {
+    'demo': (args) => {
+      return new QuadraticScatterGenerator(
         -8 * windowHeight / (15 * pow(windowWidth, 2)),
         8 * windowHeight / (15 * windowWidth),
         0.24 * windowHeight,
         0.12 * windowWidth,
         0,
-        0.12 * windowWidth,
+        0.12 * windowWidth
       )
-      return new EnemyEmitter(generator)
+    },
+    'rect-scatter': (args) => {
+      return new RectScatterGenerator(
+        args.padT || 0,
+        args.padL || 0,
+        args.padB || 0,
+        args.padR || 0
+      )
+    },
+    'quad-scatter': (args) => {
+      return new QuadraticScatterGenerator(
+        args.A, args.B, args.C,
+        args.padL || 0,
+        args.padB || 0,
+        args.padR || 0
+      )
     }
   }
-  return emitters[emitter]()
+
+  const generator = generators[emitter.name](generatorArgs)
+  return new EnemyEmitter(generator)
 }
 
 
@@ -44,7 +64,7 @@ function buildEnemyEmitter(emitter) {
  * Game system: eye gaze shooting game.
  */
 class GameSystem {
-  constructor(sx, sy, aiming) {
+  constructor(sx, sy, aiming, emitter) {
     this.cannon = new Cannon(sx, sy)
     this.cannonRestAngle = HALF_PI
     this.cannonCurrAngle = HALF_PI
@@ -62,7 +82,7 @@ class GameSystem {
     this.explosionMaxDensity = 42
 
     this.aiming = buildAiming(aiming)
-    this.emitter = buildEnemyEmitter('demo')
+    this.emitter = buildEnemyEmitter(emitter)
   }
 
   getGameScore() {

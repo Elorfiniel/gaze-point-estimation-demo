@@ -1,11 +1,13 @@
 const context = {}  // global context
 
 function setup() {
+  const aiming = 'key+pog', emitter = {name: 'demo'}
+
   context.canvas = document.getElementById("canvas")
   createCanvas(windowWidth, windowHeight, P2D, context.canvas)
 
   context.space = new Space(80)
-  context.game = new GameSystem(windowWidth / 2, -2, 'key+pog')
+  context.game = new GameSystem(windowWidth / 2, -2, aiming, emitter)
 }
 
 function draw() {
