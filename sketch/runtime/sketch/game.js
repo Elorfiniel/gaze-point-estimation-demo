@@ -28,7 +28,7 @@ function buildEnemyEmitter(emitter) {
 
   const generators = {
     'demo': (args) => {
-      return new QuadraticScatterGenerator(
+      return new QuadScatterGenerator(
         -8 * windowHeight / (15 * pow(windowWidth, 2)),
         8 * windowHeight / (15 * windowWidth),
         0.24 * windowHeight,
@@ -36,6 +36,35 @@ function buildEnemyEmitter(emitter) {
         0,
         0.12 * windowWidth
       )
+    },
+    'record': (args) => {
+      const paddingRatio = 0.04, unitCellCnts = 8
+
+      if (windowWidth >= windowHeight) {
+        const areaW = windowWidth - 2 * paddingRatio * windowHeight
+        const areaH = windowHeight - 2 * paddingRatio * windowHeight
+
+        return new GridScatterGenerator(
+          unitCellCnts,
+          Math.floor(unitCellCnts * areaW / areaH),
+          paddingRatio * windowHeight,
+          paddingRatio * windowHeight,
+          paddingRatio * windowHeight,
+          paddingRatio * windowHeight
+        )
+      } else {
+        const areaW = windowWidth - 2 * paddingRatio * windowWidth
+        const areaH = windowHeight - 2 * paddingRatio * windowWidth
+
+        return new GridScatterGenerator(
+          Math.floor(unitCellCnts * areaH / areaW),
+          unitCellCnts,
+          paddingRatio * windowWidth,
+          paddingRatio * windowWidth,
+          paddingRatio * windowWidth,
+          paddingRatio * windowWidth
+        )
+      }
     },
     'rect-scatter': (args) => {
       return new RectScatterGenerator(
@@ -46,8 +75,17 @@ function buildEnemyEmitter(emitter) {
       )
     },
     'quad-scatter': (args) => {
-      return new QuadraticScatterGenerator(
+      return new QuadScatterGenerator(
         args.A, args.B, args.C,
+        args.padL || 0,
+        args.padB || 0,
+        args.padR || 0
+      )
+    },
+    'grid-scatter': (args) => {
+      return new GridScatterGenerator(
+        args.rows, args.cols,
+        args.padT || 0,
         args.padL || 0,
         args.padB || 0,
         args.padR || 0
