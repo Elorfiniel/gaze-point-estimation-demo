@@ -342,7 +342,7 @@ function configureSocket(ctx) {
     }
 
     if (msgObj.status == 'next-ready') {
-      ctx.values.add('gaze', [msgObj.gaze_x, msgObj.gaze_y, msgObj.tid])
+      ctx.values.add('gaze', {gx: msgObj.gaze_x, gy: msgObj.gaze_y, tid: msgObj.tid})
       ctx.values.add('next-ready', true)
       ctx.values.add('next-valid', msgObj.valid)
     }
@@ -430,15 +430,16 @@ function drawWhenGame(ctx) {
 
   const gameViews = ctx.values.get('game-views')
   const recordMode = ctx.values.get('record-mode')
-  const [gx, gy, tid] = ctx.values.get('gaze')
+  const gazeInfo = ctx.values.get('gaze')
   const nextReady = ctx.values.pop('next-ready')
   const nextValid = ctx.values.get('next-valid')
 
   const xUpdate = screenLeft - ctx.values.get('init-outer-x')
   const yUpdate = screenTop - ctx.values.get('init-outer-y')
   if (nextValid == true) {
-    const [sx, sy] = ctx.display.actual2screen(gx, gy)
-    [aimX, aimY] = ctx.display.screen2canvas(sx, sy, xUpdate, yUpdate)
+    // Semicolon is intentional here, otherwise ASI gives unexpected result
+    const [sx, sy] = ctx.display.actual2screen(gazeInfo.gx, gazeInfo.gy);
+    [aimX, aimY] = ctx.display.screen2canvas(sx, sy, xUpdate, yUpdate);
   }
 
   background(221, 230, 237)
@@ -466,10 +467,10 @@ function drawWhenGame(ctx) {
 
       ctx.socket.sendMessage({
         opcode: 'save-gaze',
-        tid: tid,
-        gaze_x: nextValid ? gx : 0,
-        gaze_y: nextValid ? gy : 0,
-        label_x: ax, label_y: ay,
+        tid: gazeInfo.tid,
+        gaze_x: nextValid ? gazeInfo.gx : 0,
+        gaze_y: nextValid ? gazeInfo.gy : 0,
+        label_x: ax, label_y: ay
       })
     }
   }

@@ -7,12 +7,13 @@ class SimpleDict {
     this.dict[key] = value
   }
 
-  get(key) {
-    return this.dict[key]
+  get(key, defaultValue = undefined) {
+    const retval = this.dict[key]
+    return retval !== undefined ? retval : defaultValue
   }
 
-  pop(key) {
-    const value = this.get(key)
+  pop(key, defaultValue = undefined) {
+    const value = this.get(key, defaultValue)
 
     if (value !== undefined) {
       delete this.dict[key]

@@ -47,12 +47,14 @@ class RecordingManager():
     '''A simple recording manager based on time and item count.'''
 
     self.root = os.path.abspath(root)
-    self.new_recording()
 
     try:
       os.makedirs(self.root, exist_ok=True)
+      logging.info(f'recording root folder "{self.root}" created')
     except Exception as ex:
       logging.warning(f'cannot make root directory "{self.root}", due to {ex}')
+
+    self.new_recording()
 
   def new_recording(self):
     self.folder = datetime.datetime.now().strftime('%m-%d-%Y-%H-%M-%S')
