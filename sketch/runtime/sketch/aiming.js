@@ -60,7 +60,7 @@ class PoGAiming {
     let change = {
       init: !track && status.glared,
       value: track ? newValue : value,
-      drop: track && newValue == 0
+      drop: track && newValue == 0,
     }
     change.kill = killc
 
@@ -120,7 +120,7 @@ class KeyAiming {
     let change = {
       init: !track && status.spacebar,
       value: track ? newValue : value,
-      drop: track && !status.spacebar
+      drop: track && !status.spacebar,
     }
     change.kill = change.drop && killc
 
@@ -176,7 +176,7 @@ class KeyPoGAiming {
           this.strategy = undefined
           this.value = 0
         },
-        () => { this.value = change.value }
+        () => { this.value = change.value },
       )
       retval.kill = change.kill
     }
@@ -222,7 +222,7 @@ class Aiming {
       change,
       () => { this.record.track = true },
       () => { this.resetRecord() },
-      () => { this.record.value = change.value }
+      () => { this.record.value = change.value },
     )
 
     return change.kill

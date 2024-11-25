@@ -16,7 +16,7 @@ function buildAiming(aiming) {
   const strategies = {
     'pog': PoGAiming,
     'key': KeyAiming,
-    'key+pog': KeyPoGAiming
+    'key+pog': KeyPoGAiming,
   }
   const strategy = new strategies[aiming]()
   return new Aiming(strategy)
@@ -34,7 +34,7 @@ function buildEnemyEmitter(emitter) {
         0.24 * windowHeight,
         0.12 * windowWidth,
         0,
-        0.12 * windowWidth
+        0.12 * windowWidth,
       )
     },
     'record': (args) => {
@@ -50,7 +50,7 @@ function buildEnemyEmitter(emitter) {
           paddingRatio * windowHeight,
           paddingRatio * windowHeight,
           paddingRatio * windowHeight,
-          paddingRatio * windowHeight
+          paddingRatio * windowHeight,
         )
       } else {
         const areaW = windowWidth - 2 * paddingRatio * windowWidth
@@ -62,7 +62,7 @@ function buildEnemyEmitter(emitter) {
           paddingRatio * windowWidth,
           paddingRatio * windowWidth,
           paddingRatio * windowWidth,
-          paddingRatio * windowWidth
+          paddingRatio * windowWidth,
         )
       }
     },
@@ -71,7 +71,7 @@ function buildEnemyEmitter(emitter) {
         args.padT || 0,
         args.padL || 0,
         args.padB || 0,
-        args.padR || 0
+        args.padR || 0,
       )
     },
     'quad-scatter': (args) => {
@@ -79,7 +79,7 @@ function buildEnemyEmitter(emitter) {
         args.A, args.B, args.C,
         args.padL || 0,
         args.padB || 0,
-        args.padR || 0
+        args.padR || 0,
       )
     },
     'grid-scatter': (args) => {
@@ -88,9 +88,9 @@ function buildEnemyEmitter(emitter) {
         args.padT || 0,
         args.padL || 0,
         args.padB || 0,
-        args.padR || 0
+        args.padR || 0,
       )
-    }
+    },
   }
 
   const generator = generators[emitter.name](generatorArgs)
@@ -196,7 +196,7 @@ class GameSystem {
           const collide = this.cannonNeighbors(
             this.enemyCorpse.endX, this.enemyCorpse.endY,
             tempEnemy.endX, tempEnemy.endY,
-            this.cannonNbDist, 2.0 * this.cannonNbAng
+            this.cannonNbDist, 2.0 * this.cannonNbAng,
           )
           if (collide == true) continue
         }
@@ -274,7 +274,7 @@ class GameSystem {
     const glared = this.activeEnemy !== undefined &&
         gazeValid && this.cannonNeighbors(
       aimX, aimY, this.activeEnemy.x, this.activeEnemy.y,
-      this.cannonNbDist, this.cannonNbAng
+      this.cannonNbDist, this.cannonNbAng,
     )
     const status = {glared: glared, spacebar: spacebar, gaze: gazeValid}
 

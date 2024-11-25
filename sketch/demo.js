@@ -66,7 +66,7 @@ function createViewsForIntro(ctx) {
       textLeading(40)
       text(warnContent, 764.0 + uiShiftX, 502.0 + uiShiftY, 714, 456)
       text(noteContent, 764.0 + uiShiftX, 718.0 + uiShiftY, 714, 456)
-    }
+    },
   )
 
   createViewHelper(
@@ -106,7 +106,7 @@ function createViewsForIntro(ctx) {
         c.values.add('init-outer-y', screenTop)
         c.display.setViewportOffset(devMouseX - winMouseX, devMouseY - winMouseY)
       }
-    }
+    },
   )
 
   createViewHelper(
@@ -143,7 +143,7 @@ function createViewsForIntro(ctx) {
       if (onHover && mouseIsPressed) {
         c.socket.sendMessage({ opcode: 'kill-server' })
       }
-    }
+    },
   )
 
   return ['game-warn', 'start-button', 'exit-button']
@@ -164,7 +164,7 @@ function createViewsForOncam(ctx) {
       textAlign(CENTER, TOP)
       textSize(32)
       text(messageText, 764.0 + uiShiftX, 430.0 + uiShiftY)
-    }
+    },
   )
 
   return ['open-cam']
@@ -201,7 +201,7 @@ function createViewsForGame(ctx) {
       if (remain == 0) {
         c.states.setFutureState(c.states.states.CLOSE)
       }
-    }
+    },
   )
 
   createViewHelper(
@@ -218,7 +218,7 @@ function createViewsForGame(ctx) {
       textAlign(RIGHT, TOP)
       textSize(20)
       text(scoreText, 1492.0 + uiShiftX, 36.0 + uiShiftY)
-    }
+    },
   )
 
   return ['count-down', 'score-board']
@@ -239,7 +239,7 @@ function createViewsForClose(ctx) {
       textAlign(CENTER, TOP)
       textSize(32)
       text(messageText, 764.0 + uiShiftX, 430.0 + uiShiftY)
-    }
+    },
   )
 
   return ['kill-cam']
@@ -266,7 +266,7 @@ function createViewsForOutro(ctx) {
       strokeWeight(1.6)
       textSize(28)
       text(scoreText, 764.0 + uiShiftX, 344.0 + uiShiftY)
-    }
+    },
   )
 
   createViewHelper(
@@ -307,7 +307,7 @@ function createViewsForOutro(ctx) {
       if (onHover && mouseIsPressed) {
         c.states.setFutureState(c.states.states.INTRO)
       }
-    }
+    },
   )
 
   return ['congrats', 'restart-button']
@@ -470,7 +470,7 @@ function drawWhenGame(ctx) {
         tid: gazeInfo.tid,
         gaze_x: nextValid ? gazeInfo.gx : 0,
         gaze_y: nextValid ? gazeInfo.gy : 0,
-        label_x: ax, label_y: ay
+        label_x: ax, label_y: ay,
       })
     }
   }
