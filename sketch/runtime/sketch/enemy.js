@@ -11,7 +11,7 @@ class Enemy {
     this.r = 0.2 * HALF_PI * (random() - 0.5)
     this.endR = 0.1 * HALF_PI * (random() - 0.5)
 
-    this.moveLifespan = random(4, 8)
+    this.moveLifespan = random(range(4, 9, 1))
 
     this.deltaY = (this.endY - this.y) / this.moveLifespan
     this.deltaR = (this.endR - this.r) / this.moveLifespan

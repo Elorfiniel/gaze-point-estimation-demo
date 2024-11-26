@@ -9,7 +9,7 @@ class ExplosionFragments {
     this.s = 1
     this.sz = random(8, 12)
 
-    this.lifespan = random(6, 36)
+    this.lifespan = random(range(6, 37, 1))
 
     this.deltaX = random(-60, 60) / this.lifespan
     this.deltaY = random(-60, 60) / this.lifespan

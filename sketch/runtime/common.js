@@ -1,3 +1,20 @@
+/**
+ * Sequence generator, commonly referred to as "range".
+ *
+ * Excerpt from the MDN docs:
+ *   https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array/from
+ */
+function range(start, stop, step) {
+  return Array.from(
+    { length: Math.ceil((stop - start) / step) },
+    (_, i) => start + i * step,
+  )
+}
+
+
+/**
+ * Simple dictionary to store key-value pairs.
+ */
 class SimpleDict {
   constructor() {
     this.dict = {}
