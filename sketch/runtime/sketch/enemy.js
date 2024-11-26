@@ -8,8 +8,8 @@ class Enemy {
     this.endX = endX
     this.endY = endY
 
-    this.r = 0.2 * HALF_PI * (Math.random() - 0.5)
-    this.endR = 0.1 * HALF_PI * (Math.random() - 0.5)
+    this.r = 0.2 * HALF_PI * (random() - 0.5)
+    this.endR = 0.1 * HALF_PI * (random() - 0.5)
 
     this.moveLifespan = random(4, 8)
 
@@ -80,11 +80,11 @@ class RectScatterGenerator {
   }
 
   gen() {
-    const sx = this.minX + (this.maxX - this.minX) * Math.random()
+    const sx = this.minX + (this.maxX - this.minX) * random()
     const ex = sx
 
     const sy = windowHeight + random(40, 60)
-    const ey = this.minY + (this.maxY - this.minY) * Math.random()
+    const ey = this.minY + (this.maxY - this.minY) * random()
 
     return [sx, sy, ex, ey]
   }
@@ -106,12 +106,12 @@ class QuadScatterGenerator {
   gen() {
     const [A, B, C] = this.coefs
 
-    const sx = this.minX + (this.maxX - this.minX) * Math.random()
+    const sx = this.minX + (this.maxX - this.minX) * random()
     const ex = sx
 
     const minY = A * pow(sx, 2) + B * sx + C
     const sy = windowHeight + random(40, 60)
-    const ey = minY + (this.maxY - minY) * Math.random()
+    const ey = minY + (this.maxY - minY) * random()
 
     return [sx, sy, ex, ey]
   }
@@ -140,11 +140,11 @@ class GridScatterGenerator {
     const index = this.order[this.count++]
     const i = index % this.cols, j = Math.floor(index / this.cols)
 
-    const sx = this.origX + (i + Math.random()) * this.deltaX
+    const sx = this.origX + (i + random()) * this.deltaX
     const ex = sx
 
     const sy = windowHeight + random(40, 60)
-    const ey = this.origY + (j + Math.random()) * this.deltaY
+    const ey = this.origY + (j + random()) * this.deltaY
 
     return [sx, sy, ex, ey]
   }
@@ -158,7 +158,7 @@ class GridScatterGenerator {
     let array = Array.from({ length: this.total }, (_, i) => i)
     for (let i = this.total - 1; i > 0; i--) {
       // Semicolon is intentional here, otherwise ASI gives unexpected result
-      const j = Math.floor(Math.random() * (i + 1));
+      const j = Math.floor(random() * (i + 1));
       [array[i], array[j]] = [array[j], array[i]];
     }
 

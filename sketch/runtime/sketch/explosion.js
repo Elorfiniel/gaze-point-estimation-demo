@@ -5,7 +5,7 @@ class ExplosionFragments {
   constructor(x, y) {
     this.x = x
     this.y = y
-    this.r = Math.random() * TWO_PI
+    this.r = random() * TWO_PI
     this.s = 1
     this.sz = random(8, 12)
 
@@ -14,7 +14,7 @@ class ExplosionFragments {
     this.deltaX = random(-60, 60) / this.lifespan
     this.deltaY = random(-60, 60) / this.lifespan
 
-    this.deltaR = 0.4 * HALF_PI * (Math.random() - 0.5)
+    this.deltaR = 0.4 * HALF_PI * (random() - 0.5)
     this.deltaS = random([0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8]) / this.lifespan
 
     this.type = random(['l', 'c', 's', 's', 't', 't'])
@@ -25,7 +25,7 @@ class ExplosionFragments {
   }
 
   randomColor() {
-    const rnd = Math.random()
+    const rnd = random()
 
     if (rnd < 0.6) return [221, 230, 237]
     if (rnd < 0.8) return [39, 55, 77]

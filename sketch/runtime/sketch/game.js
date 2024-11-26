@@ -185,7 +185,7 @@ class GameSystem {
   }
 
   enemyCreate(probability, maxTrials, avoid_corpse = false) {
-    if (Math.random() < probability) {
+    if (random() < probability) {
 
       let newEnemy = undefined
 
@@ -232,7 +232,7 @@ class GameSystem {
 
   explosionCreate(x, y) {
     const maxFragments = round(
-      Math.random() * (this.explosionMaxDensity - this.explosionMinDensity)
+      random() * (this.explosionMaxDensity - this.explosionMinDensity)
     ) + this.explosionMinDensity
 
     let explosion = new Explosion(x, y, maxFragments)

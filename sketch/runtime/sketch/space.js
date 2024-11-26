@@ -36,7 +36,7 @@ class Space {
     this.meteors = []
 
     for (let i = 0; i < this.maxMeteors; i++) {
-      if (Math.random() < 0.2) continue;
+      if (random() < 0.2) continue;
 
       let meteor = new Meteor()
       meteor.y = random(0, windowHeight)
@@ -66,7 +66,7 @@ class Space {
     }
 
     for (let i = nextMeteors.length; i < this.maxMeteors; i++) {
-      if (Math.random() < 0.5) continue;
+      if (random() < 0.5) continue;
 
       let meteor = new Meteor()
       nextMeteors.push(meteor)
