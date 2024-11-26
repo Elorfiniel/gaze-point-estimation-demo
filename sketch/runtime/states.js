@@ -1,6 +1,7 @@
 class GameStates {
   constructor() {
     this.INTRO = 'INTRO'
+    this.CHECK = 'CHECK'
     this.ONCAM = 'ONCAM'
     this.GAME = 'GAME'
     this.CLOSE = 'CLOSE'

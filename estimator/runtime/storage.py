@@ -5,7 +5,7 @@ import os
 
 
 class FrameCache():
-  def __init__(self, max_count: 600):
+  def __init__(self, max_count=600):
     '''A simple FIFO cache with limited max size.'''
 
     self.frame_count = 0
@@ -54,10 +54,8 @@ class RecordingManager():
     except Exception as ex:
       logging.warning(f'cannot make root directory "{self.root}", due to {ex}')
 
-    self.new_recording()
-
-  def new_recording(self):
-    self.folder = datetime.datetime.now().strftime('%m-%d-%Y-%H-%M-%S')
+  def new_recording(self, folder=''):
+    self.folder = folder or datetime.datetime.now().strftime('%m-%d-%Y-%H-%M-%S')
     self.item_count = 0
 
     folder_path = os.path.join(self.root, self.folder)

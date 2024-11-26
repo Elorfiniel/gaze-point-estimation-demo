@@ -13,12 +13,19 @@ screen_size_cm = [17.4, 31.0]
 #   Note: use an absolute path, or a relative path to the bootstrap EXE
 # record_path = 'demo-capture'
 
+# Settings for camera check, used for server hello packet
+#   1. Enable camera check
+#   2. Rename folder name in record mode
+[check]
+camera = true
+rename = true
+
 # Settings for gaze shooting game, used for server hello packet
 #   1. Countdown mode: seconds, targets
 #   2. Countdown value
 #   3. Aiming mode: pog, key, key+pog
 #   4. EnemyEmitter configs: name and extra arguments
-[game_settings]
+[game]
 countdown = 'seconds'
 value = 90
 aiming = 'pog'

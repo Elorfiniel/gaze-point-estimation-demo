@@ -48,6 +48,7 @@ def camera_handler(model, camera_id,
       # Create a recording manager to save captured frames
       frame_cache = FrameCache(max_count=600)
       recording_manager = RecordingManager(root=server_params['record_path'])
+      recording_manager.new_recording(server_params['record_name'])
 
   # Create a video capture for the specified camera id
   capture = cv2.VideoCapture(camera_id)
@@ -152,7 +153,7 @@ def camera_handler(model, camera_id,
     while server_params['record_path'] and not server_params['save_queue'].empty():
       fetch_save_task(server_params['save_queue'], frame_cache, recording_manager)
 
-def camera_process(config, record_path, save_queue,
+def camera_process(config, record_path, record_name, save_queue,
                    open_event, kill_event, value_bank, value_lock,
                    next_ready, next_valid):
   '''Load model using configuration, start the camera handler.'''
@@ -172,6 +173,7 @@ def camera_process(config, record_path, save_queue,
     next_ready=next_ready,
     next_valid=next_valid,
     record_path=record_path,
+    record_name=record_name,
     save_queue=save_queue,
   )
   camera_handler(model, **config, server_params=server_params)
@@ -180,14 +182,19 @@ def camera_process(config, record_path, save_queue,
 
 
 
-async def server_hello(websocket, config, record_mode, game_settings):
+async def server_hello(websocket, config, record_mode, check, game):
+  if check['camera']:
+    check['srcRes'] = config['capture_resolution']
+    check['tgtRes'] = config['target_resolution']
+
   # Send "server-on" to notify the client
   await websocket_send_json(websocket, {
     'status': 'server-on',
     'topleftOffset': config['topleft_offset'],
     'screenSizeCm': config['screen_size_cm'],
     'recordMode': record_mode,
-    'gameSettings': game_settings,
+    'checkSettings': check,
+    'gameSettings': game,
   })
 
 async def handle_message(message, websocket, camera_status, **kwargs):
@@ -206,10 +213,14 @@ async def handle_message(message, websocket, camera_status, **kwargs):
     camera_status['value-lock'] = mp.Lock()
     camera_status['save-queue'] = mp.Queue()
 
+    # Optional folder name of the next record, sent by the client
+    record_name = message_obj.get('record_name', '')
+
     camera_status['camera-proc'] = mp.Process(
       target=camera_process, args=(
         kwargs['config'],
         kwargs['record_path'],
+        record_name,
         camera_status['save-queue'],
         camera_status['camera-open'],
         camera_status['camera-kill'],
@@ -284,7 +295,11 @@ async def server_process(websocket, stop_future, config_path, record_mode, recor
   config['__config_path'] = config_path
 
   # Send "server-on" packet to notify the client
-  await server_hello(websocket, config, record_mode, config.pop('game_settings'))
+  await server_hello(
+    websocket, config, record_mode,
+    config.pop('check'),
+    config.pop('game'),
+  )
 
   camera_status = {}
   server_alive = True

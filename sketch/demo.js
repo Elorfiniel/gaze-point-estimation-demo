@@ -21,6 +21,23 @@ function createViewHelper(name, ctx, draw_fn = (c) => {}, update_fn = (c) => {})
   ctx.views.add(name, view)
 }
 
+function rescalePatch(srcW, srcH, tgtW, tgtH) {
+  const srcAsp = srcW / srcH
+  const tgtAsp = tgtW / tgtH
+
+  let retval = [0.0, 0.0, srcW, srcH]
+  if (tgtAsp > srcAsp) {
+    const rescaleH = Math.floor(srcW / tgtAsp)
+    const paddingH = Math.floor((srcH - rescaleH) / 2)
+    retval = [0.0, paddingH, srcW, rescaleH]
+  } else if (tgtAsp < srcAsp) {
+    const rescaleW = Math.floor(srcH * tgtAsp)
+    const paddingW = Math.floor((srcW - rescaleW) / 2)
+    retval = [paddingW, 0.0, rescaleW, srcH]
+  }
+
+  return retval
+}
 
 
 /**
@@ -101,10 +118,16 @@ function createViewsForIntro(ctx) {
       text(buttonText, 684.0 + uiShiftX, 611.8 + uiShiftY)
 
       if (onHover && mouseIsPressed) {
-        c.states.setFutureState(c.states.states.ONCAM)
         c.values.add('init-outer-x', screenLeft)
         c.values.add('init-outer-y', screenTop)
         c.display.setViewportOffset(devMouseX - winMouseX, devMouseY - winMouseY)
+
+        const checkSettings = c.values.get('check-settings')
+        const recordMode = c.values.get('record-mode')
+
+        const checkPage = recordMode && checkSettings.rename || checkSettings.camera
+        const nextState = checkPage ? c.states.states.CHECK : c.states.states.ONCAM
+        c.states.setFutureState(nextState)
       }
     },
   )
@@ -149,12 +172,148 @@ function createViewsForIntro(ctx) {
   return ['game-warn', 'start-button', 'exit-button']
 }
 
+function createViewsForCheck(ctx) {
+  let imageShiftY = 0
+
+  createViewHelper(
+    'check-camera',
+    ctx,
+    (c) => {
+      const checkSettings = c.values.get('check-settings')
+      if (checkSettings.camera == false) {
+        imageShiftY = 0
+        return
+      }
+
+      const [idealH, idealW] = checkSettings.srcRes
+      const [imageH, imageW] = checkSettings.tgtRes
+
+      let [uiShiftX, uiShiftY] = c.values.get('ui-shift')
+
+      let camera = c.values.get('check-camera')
+      if (camera === undefined) {
+        const constraints = {
+          video: {
+            width: { min: 640, ideal: idealW, max: 1920 },
+            height: { min: 480, ideal: idealH, max: 1080 },
+          },
+          audio: false,
+        }
+
+        camera = createCapture(constraints)
+        camera.removeAttribute('playsinline')
+        camera.attribute('autoplay', '')
+        camera.hide()
+
+        imageShiftY = 0.5 * imageH + 20
+        c.values.add('check-camera', camera)
+      }
+
+      const [sx, sy, sw, sh] = rescalePatch(camera.width, camera.height, imageW, imageH)
+
+      imageMode(CENTER)
+      image(
+        camera,
+        764.0 + uiShiftX, 430.0 + uiShiftY,
+        imageW, imageH,
+        sx, sy, sw, sh,
+        CONTAIN,
+      )
+    },
+  )
+
+  createViewHelper(
+    'record-name',
+    ctx,
+    (c) => {
+      const checkSettings = c.values.get('check-settings')
+      const recordMode = c.values.get('record-mode')
+      if (recordMode == false || checkSettings.rename == false) return
+
+      let [uiShiftX, uiShiftY] = c.values.get('ui-shift')
+      uiShiftY += imageShiftY == 0 ? 0 : (imageShiftY + 0.5 * 50)
+
+      // Handle shifting and scaling of the canvas
+      const rect = c.canvas.getBoundingClientRect()
+      const scaling = c.values.get('ui-scale')
+
+      let name = c.values.get('record-name')
+      if (name === undefined) {
+        name = createInput('', 'text')
+
+        name.attribute('placeholder', '设置保存名称')
+
+        c.values.add('record-name', name)
+      }
+
+      Object.entries({
+        'padding': `0px ${10 * scaling}px`,
+        'width': `${220 * scaling}px`,
+        'height': `${48 * scaling}px`,
+        'top': `${(430.0 + uiShiftY) * scaling + rect.top}px`,
+        'left': `${(644.0 + uiShiftX) * scaling + rect.left}px`,
+        'font-size': `${24 * scaling}px`,
+        'font-weight': `${500 * scaling}`,
+        'line-height': `${48 * scaling}px`,
+        'border-width': `${2 * scaling}px`,
+      }).forEach(([key, value]) => name.style(key, value))
+
+      name.show()
+    },
+  )
+
+  createViewHelper(
+    'check-button',
+    ctx,
+    (c) => {
+      let [uiShiftX, uiShiftY] = c.values.get('ui-shift')
+      uiShiftY += imageShiftY == 0 ? 0 : (imageShiftY + 0.5 * 50)
+
+      const scaling = c.values.get('ui-scale')
+
+      const buttonText = '确  认  开  始'
+
+      const checkMouse = (x, y) => {
+        x = x / scaling
+        y = y / scaling
+
+        const xInRange = 784.0 + uiShiftX <= x && x <= 984.0 + uiShiftX
+        const yInRange = 405.0 + uiShiftY <= y && y <= 455.0 + uiShiftY
+
+        return xInRange && yInRange
+      }
+      const onHover = checkMouse(mouseX, mouseY)
+
+      noFill()
+      if (onHover) {
+        stroke(169, 29, 58)
+      } else {
+        stroke(39, 55, 77)
+      }
+      strokeWeight(2)
+      rectMode(CENTER)
+      rect(884.0 + uiShiftX, 430.0 + uiShiftY, 200, 50)
+
+      strokeWeight(1.6)
+      textAlign(CENTER, CENTER)
+      textSize(24)
+      text(buttonText, 884.0 + uiShiftX, 426.0 + uiShiftY)
+
+      if (onHover && mouseIsPressed) {
+        c.states.setFutureState(c.states.states.ONCAM)
+      }
+    },
+  )
+
+  return ['check-camera', 'record-name', 'check-button']
+}
+
 function createViewsForOncam(ctx) {
   createViewHelper(
     'open-cam',
     ctx,
     (c) => {
-      const messageText = '[  请  等  待  摄  像  头  开  启  ]'
+      const messageText = '[  请  等  待  游  戏  开  启  ]'
 
       const [uiShiftX, uiShiftY] = c.values.get('ui-shift')
 
@@ -164,6 +323,10 @@ function createViewsForOncam(ctx) {
       textAlign(CENTER, TOP)
       textSize(32)
       text(messageText, 764.0 + uiShiftX, 430.0 + uiShiftY)
+
+      if (c.values.pop('camera-on') == true) {
+        c.states.setFutureState(c.states.states.GAME)
+      }
     },
   )
 
@@ -176,18 +339,18 @@ function createViewsForGame(ctx) {
     ctx,
     (c) => {
       const [uiShiftX, uiShiftY] = c.values.get('ui-shift')
-      const settings = ctx.values.get('settings')
+      const gameSettings = c.values.get('game-settings')
 
       let message = '剩余', remain = 0
 
-      if (settings.countdown == 'seconds') {
+      if (gameSettings.countdown == 'seconds') {
         const start = c.values.get('game-start')
         const past = Math.floor(((new Date()).getTime() - start.getTime()) / 1000)
-        remain = settings.value < past ? 0 : settings.value - past
+        remain = gameSettings.value < past ? 0 : gameSettings.value - past
         message += `时间：${remain}s`
       }
-      if (settings.countdown == 'targets') {
-        remain = settings.value - c.game.getGameScore()
+      if (gameSettings.countdown == 'targets') {
+        remain = gameSettings.value - c.game.getGameScore()
         message += `敌机：${remain}`
       }
 
@@ -229,7 +392,7 @@ function createViewsForClose(ctx) {
     'kill-cam',
     ctx,
     (c) => {
-      const messageText = '[  请  等  待  摄  像  头  关  闭  ]'
+      const messageText = '[  请  等  待  结  果  统  计  ]'
 
       const [uiShiftX, uiShiftY] = c.values.get('ui-shift')
 
@@ -239,6 +402,10 @@ function createViewsForClose(ctx) {
       textAlign(CENTER, TOP)
       textSize(32)
       text(messageText, 764.0 + uiShiftX, 430.0 + uiShiftY)
+
+      if (c.values.pop('camera-off') == true) {
+        c.states.setFutureState(c.states.states.OUTRO)
+      }
     },
   )
 
@@ -330,15 +497,16 @@ function configureSocket(ctx) {
       ctx.display.setScreenSize(screen.height, screen.width)
 
       ctx.values.add('record-mode', msgObj.recordMode)
-      ctx.values.add('settings', msgObj.gameSettings)
+      ctx.values.add('check-settings', msgObj.checkSettings)
+      ctx.values.add('game-settings', msgObj.gameSettings)
     }
 
     if (msgObj.status == 'camera-on') {
-      ctx.states.setFutureState(allStates.GAME)
+      ctx.values.add('camera-on', true)
     }
 
     if (msgObj.status == 'camera-off') {
-      ctx.states.setFutureState(allStates.OUTRO)
+      ctx.values.add('camera-off', true)
     }
 
     if (msgObj.status == 'next-ready') {
@@ -387,6 +555,9 @@ function drawGameStates(ctx) {
     case allStates.INTRO:
       drawWhenIntro(ctx)
       break
+    case allStates.CHECK:
+      drawWhenCheck(ctx)
+      break
     case allStates.ONCAM:
       drawWhenOncam(ctx)
       break
@@ -409,6 +580,17 @@ function drawWhenIntro(ctx) {
   ctx.space.draw()
 
   drawViewsForState(ctx, introViews)
+
+  ctx.space.update()
+}
+
+function drawWhenCheck(ctx) {
+  const checkViews = ctx.values.get('check-views')
+
+  background(221, 230, 237)
+  ctx.space.draw()
+
+  drawViewsForState(ctx, checkViews)
 
   ctx.space.update()
 }
@@ -517,6 +699,9 @@ function actOnStateUpdate(ctx) {
       case allStates.INTRO:
         actOnSwitchToIntro(ctx)
         break
+      case allStates.CHECK:
+        actOnSwitchToCheck(ctx)
+        break
       case allStates.ONCAM:
         actOnSwitchToOncam(ctx)
         break
@@ -538,15 +723,37 @@ function actOnSwitchToIntro(ctx) {
   ctx.space = new Space(80)
 }
 
+function actOnSwitchToCheck(ctx) {
+  /**
+   * Reserved for future use.
+   */
+}
+
 function actOnSwitchToOncam(ctx) {
-  ctx.socket.sendMessage({ opcode: 'open-cam' })
+  const checkSettings = ctx.values.get('check-settings')
+  const recordMode = ctx.values.get('record-mode')
+
+  let message = { opcode: 'open-cam' }
+
+  if (checkSettings.camera == true) {
+    const camera = ctx.values.pop('check-camera')
+    camera.remove()
+  }
+
+  if (recordMode && checkSettings.rename == true) {
+    const name = ctx.values.get('record-name')
+    message.record_name = name.value()
+    name.hide()
+  }
+
+  ctx.socket.sendMessage(message)
 }
 
 function actOnSwitchToGame(ctx) {
-  const settings = ctx.values.get('settings')
-  ctx.game = new GameSystem(windowWidth / 2, -2, settings.aiming, settings.emitter)
+  const gameSettings = ctx.values.get('game-settings')
+  ctx.game = new GameSystem(windowWidth / 2, -2, gameSettings.aiming, gameSettings.emitter)
 
-  if (settings.countdown == 'seconds') {
+  if (gameSettings.countdown == 'seconds') {
     ctx.values.add('game-start', new Date())
   }
 }
@@ -590,6 +797,8 @@ function setup() {
 
   const introViews = createViewsForIntro(context)
   context.values.add('intro-views', introViews)
+  const checkViews = createViewsForCheck(context)
+  context.values.add('check-views', checkViews)
   const oncamViews = createViewsForOncam(context)
   context.values.add('oncam-views', oncamViews)
   const gameViews = createViewsForGame(context)

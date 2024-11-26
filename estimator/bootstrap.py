@@ -27,7 +27,7 @@ import websockets
 
 _ALLOWED_KEYS_FOR_CONFIG = [
   'camera_id', 'topleft_offset', 'screen_size_px', 'screen_size_cm',
-  'game_settings',
+  'check', 'game',
 ]
 
 
@@ -76,7 +76,11 @@ async def server_process(websocket, stop_future, device_config):
   config = deep_update(config, new_config)
 
   # Send "server-on" to notify the client
-  await server_hello(websocket, config, record_path != '', config.pop('game_settings'))
+  await server_hello(
+    websocket, config, record_path != '',
+    config.pop('check'),
+    config.pop('game'),
+  )
 
   camera_status = {}
   server_alive = True

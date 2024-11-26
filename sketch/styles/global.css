@@ -8,3 +8,24 @@ body {
   left: 50%; top: 50%;
   transform: translate(-50%, -50%);
 }
+
+input[type=text] {
+  background: none;
+  position: absolute;
+  transform: translate(-50%, -50%);
+  font-family: 'SourceHanSansSC-VF', sans-serif;
+  text-align: center;
+  color: rgb(39, 55, 77);
+  border-style: solid;
+  border-color: rgb(39, 55, 77);
+  outline: none;
+}
+
+input[type=text]:focus {
+  color: rgb(169, 29, 58);
+  border-color: rgb(169, 29, 58);
+}
+
+::placeholder {
+  color: rgb(106, 126, 154);
+}
