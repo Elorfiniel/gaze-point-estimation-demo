@@ -161,7 +161,6 @@ def camera_process(config, record_path, record_name, save_queue,
   logging.info('gaze point estimator will start in a few seconds')
 
   # Load estimator checkpoint from file system
-  config = config.copy()  # Prevent modification
   model = load_model(config.pop('__config_path'), config.pop('checkpoint'))
 
   # Handle control to camera handler

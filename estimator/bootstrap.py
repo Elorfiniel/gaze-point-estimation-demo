@@ -15,6 +15,7 @@ from runtime.bundle import is_running_in_bundle, get_bundled_path
 import argparse
 import asyncio
 import contextlib
+import copy
 import functools
 import http.server as hs
 import logging
@@ -59,6 +60,8 @@ def create_httpd(host, port, directory):
 async def server_process(websocket, stop_future, device_config):
   logging.info('websocket server started, listening for requests')
 
+  device_config = copy.deepcopy(device_config)
+
   record_path = device_config.pop('record_path', '')
   if record_path:
     logging.info(f'recording mode on, save recordings to {record_path}')
@@ -69,11 +72,11 @@ async def server_process(websocket, stop_future, device_config):
   config = load_toml_secure(config_path)
   config['__config_path'] = config_path
 
-  new_config = device_config.copy()
-  for key in device_config.keys():
+  device_config_keys = list(device_config.keys())
+  for key in device_config_keys:
     if not key in _ALLOWED_KEYS_FOR_CONFIG:
-      new_config.pop(key)
-  config = deep_update(config, new_config)
+      device_config.pop(key)
+  config = deep_update(config, device_config)
 
   # Send "server-on" to notify the client
   await server_hello(

@@ -1,3 +1,4 @@
+import copy
 import cv2
 import logging
 import json
@@ -65,7 +66,7 @@ async def websocket_send_json(websocket, message_obj):
 def deep_update(target_dict: dict, new_dict: dict):
   '''Deeply update a dictionary with another dictionary.'''
 
-  target_dict = target_dict.copy()
+  target_dict = copy.deepcopy(target_dict)
 
   for key, value in new_dict.items():
     if key in target_dict and isinstance(target_dict[key], dict) and isinstance(value, dict):
