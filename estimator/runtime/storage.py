@@ -65,14 +65,16 @@ class RecordingManager():
     except Exception as ex:
       logging.warning(f'cannot make recording folder "{folder_path}", due to {ex}')
 
-  def save_frame(self, frame, px, py, lx, ly):
+  def save_frame(self, frame, px, py, lx, ly, image_ext='.jpg'):
     item_label = f'{px:.4f}_{py:.4f}_{lx:.4f}_{ly:.4f}'
     frame_name = f'{self.item_count:05d} {item_label}.jpg'
 
     frame_path = os.path.join(self.root, self.folder, frame_name)
 
     try:  # Save frame to the specified path
-      cv2.imwrite(frame_path, frame)
-      self.item_count += 1
+      encoded, buffer = cv2.imencode(image_ext, frame)
+      if encoded:
+        buffer.tofile(frame_path)
+        self.item_count += 1
     except Exception as ex:
       logging.warning(f'cannot save frame to path "{frame_path}", due to {ex}')
