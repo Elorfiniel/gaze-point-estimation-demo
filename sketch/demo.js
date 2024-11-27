@@ -487,8 +487,6 @@ function createViewsForOutro(ctx) {
  */
 function configureSocket(ctx) {
   ctx.socket.setOnMessage((msgObj) => {
-    const allStates = ctx.states.allStates()
-
     if (msgObj.status == 'server-on') {
       const [cx, cy] = msgObj.topleftOffset
       ctx.display.setScreenOrigin(cx, cy)
@@ -542,6 +540,20 @@ function configureScreen(ctx) {
   }
 }
 
+function configureViews(ctx) {
+  const introViews = createViewsForIntro(ctx)
+  ctx.values.add('intro-views', introViews)
+  const checkViews = createViewsForCheck(ctx)
+  ctx.values.add('check-views', checkViews)
+  const oncamViews = createViewsForOncam(ctx)
+  ctx.values.add('oncam-views', oncamViews)
+  const gameViews = createViewsForGame(ctx)
+  ctx.values.add('game-views', gameViews)
+  const closeViews = createViewsForClose(ctx)
+  ctx.values.add('close-views', closeViews)
+  const outroViews = createViewsForOutro(ctx)
+  ctx.values.add('outro-views', outroViews)
+}
 
 
 /**
@@ -777,7 +789,7 @@ function switchGameState(ctx) {
 
 
 /**
- * Game context and the general main loop
+ * Game context and the general main loop.
  */
 const context = new GameContext()
 
@@ -794,19 +806,7 @@ function setup() {
 
   configureScreen(context)
   configureSocket(context)
-
-  const introViews = createViewsForIntro(context)
-  context.values.add('intro-views', introViews)
-  const checkViews = createViewsForCheck(context)
-  context.values.add('check-views', checkViews)
-  const oncamViews = createViewsForOncam(context)
-  context.values.add('oncam-views', oncamViews)
-  const gameViews = createViewsForGame(context)
-  context.values.add('game-views', gameViews)
-  const closeViews = createViewsForClose(context)
-  context.values.add('close-views', closeViews)
-  const outroViews = createViewsForOutro(context)
-  context.values.add('outro-views', outroViews)
+  configureViews(context)
 }
 
 function draw() {
@@ -817,7 +817,7 @@ function draw() {
 
 
 /**
- * Close socket on page closing or reloading gracefully
+ * Close socket on page closing or reloading gracefully.
  */
 window.onbeforeunload = (e) => {
   if (context.socket !== undefined) {
