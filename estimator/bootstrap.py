@@ -6,191 +6,150 @@ if __name__ == '__main__':
   freeze_support()  # Fix issues on Windows
 
 
-from estimator import (
-  configure_logging, deep_update, load_toml_secure,
-  server_hello, handle_message, broadcast_gaze, websocket_server,
-)
 from runtime.bundle import is_running_in_bundle, get_bundled_path
+from runtime.server import http_server
+
+from estimator import (
+  load_config, create_server_consumer,
+  clean_up_context, websocket_send_json,
+  send_server_hello, send_gaze_predict, recv_client_message,
+  on_kill_camera, on_kill_server, on_save_result,
+  run_http_server, run_websocket_server,
+  configure_logging,
+)
 
 import argparse
-import asyncio
-import contextlib
-import copy
 import functools
-import http.server as hs
+import json
 import logging
+import multiprocessing as mp
 import os.path as osp
-import socket
 import sys
 import threading
-import websockets
 
 
-_ALLOWED_KEYS_FOR_CONFIG = [
-  'camera_id', 'topleft_offset', 'screen_size_px', 'screen_size_cm',
-  'check', 'game',
-]
 
+async def on_open_camera(message_obj, websocket, context, config_path, record_path, device_config):
+  context['camera_open'] = mp.Event()
+  context['camera_kill'] = mp.Event()
 
-def create_httpd(host, port, directory):
-  class QuietHandler(hs.SimpleHTTPRequestHandler):
-    def log_message(self, format, *args):
-      pass  # Disable logging from the server
+  context['next_ready'] = mp.Event()
+  context['next_valid'] = mp.Value('b', False)
+  context['value_bank'] = mp.Array('d', (0.0, 0.0, 0.0))
+  context['value_lock'] = mp.Lock()
 
-  handler_class = functools.partial(QuietHandler, directory=directory)
-  handler_class.protocol_version = 'HTTP/1.0'
+  if record_path != '':
+    context['save_queue'] = mp.Queue()
+    record_info = dict(
+      enable=True, cache_size=600,
+      root=record_path,
+      name=message_obj.get('record_name', ''),
+      save_queue=context['save_queue'],
+    )
+  else:
+    record_info = dict(enable=False)
 
-  infos = socket.getaddrinfo(host, port, type=socket.SOCK_STREAM, flags=socket.AI_PASSIVE)
-  family, _, _, _, sockaddr = next(iter(infos))
-
-  class DualStackServer(hs.ThreadingHTTPServer):
-    '''Simple http server that binds to both IPv4 and IPv6 addresses.'''
-
-    address_family = family
-
-    def server_bind(self):
-      '''Implementation copied from `http.server`.'''
-      with contextlib.suppress(Exception):
-        self.socket.setsockopt(socket.IPPROTO_IPV6, socket.IPV6_V6ONLY, 0)
-      return super().server_bind()
-
-  return DualStackServer(sockaddr, handler_class)
-
-
-async def server_process(websocket, stop_future, device_config):
-  logging.info('websocket server started, listening for requests')
-
-  device_config = copy.deepcopy(device_config)
-
-  record_path = device_config.pop('record_path', '')
-  if record_path:
-    logging.info(f'recording mode on, save recordings to {record_path}')
-    record_path = osp.abspath(record_path)
-
-  # Load configuration for the PoG estimator
-  config_path = get_bundled_path(osp.join('_app_data', 'estimator.toml'))
-  config = load_toml_secure(config_path)
-  config['__config_path'] = config_path
-
-  device_config_keys = list(device_config.keys())
-  for key in device_config_keys:
-    if not key in _ALLOWED_KEYS_FOR_CONFIG:
-      device_config.pop(key)
-  config = deep_update(config, device_config)
-
-  # Send "server-on" to notify the client
-  await server_hello(
-    websocket, config, record_path != '',
-    config.pop('check'),
-    config.pop('game'),
+  context['camera_proc'] = mp.Process(
+    target=create_server_consumer, kwargs=dict(
+      config_path=config_path,
+      open_event=context['camera_open'],
+      kill_event=context['camera_kill'],
+      next_ready=context['next_ready'],
+      next_valid=context['next_valid'],
+      value_bank=context['value_bank'],
+      value_lock=context['value_lock'],
+      record_info=record_info,
+      config_updater=device_config,
+    ),
   )
 
-  camera_status = {}
-  server_alive = True
+  context['camera_proc'].start()
+  context['camera_open'].wait()
 
+  await websocket_send_json(websocket, { 'status': 'camera_on' })
+
+  return False
+
+async def websocket_handler(websocket, stop_future, device_config):
+  '''Handler for incoming websocket requests, sent by main game loop.'''
+
+  server_alive, exit_cond_1, exit_cond_2 = True, False, False
+
+  config_path = get_bundled_path(osp.join('_app_data', 'estimator.toml'))
+  config = load_config(config_path, device_config)
+
+  record_path = config['server']['record']['path']
+  await send_server_hello(websocket, config, record_path)
+
+  handler_infos = dict(
+    open_camera=dict(fn=on_open_camera, kw=dict(
+      config_path=config_path,
+      record_path=record_path,
+      device_config=device_config,
+    )),
+    kill_camera=dict(fn=on_kill_camera, kw=dict()),
+    kill_server=dict(fn=on_kill_server, kw=dict(stop_future=stop_future)),
+    save_result=dict(fn=on_save_result, kw=dict(record_path=record_path)),
+  )
+
+  context = dict()  # Context shared by handler functions
   while server_alive:
-    try:  # Wait for the message until a timeout occurs
-      message = await asyncio.wait_for(websocket.recv(), timeout=0.01)
-    except websockets.ConnectionClosed:
-      break # Close server upon closed client
-    except asyncio.TimeoutError:
-      message = None
+    await send_gaze_predict(websocket, context)
+
+    exit_cond_1, message = await recv_client_message(websocket)
 
     if message is not None:
-      should_exit = await handle_message(
-        message, websocket, camera_status,
-        config=config,
-        record_path=record_path,
-        stop_future=stop_future,
-      )
-      server_alive = not should_exit
+      message_obj = json.loads(message) # Deserialize
+      info = handler_infos[message_obj['opcode']]
+      args = (message_obj, websocket, context)
+      exit_cond_2 = await info['fn'](*args, **info['kw'])
 
-    if camera_status.get('camera-proc', None):
-      await broadcast_gaze(websocket, camera_status)
+    server_alive = not exit_cond_1 and not exit_cond_2
 
-  logging.info('websocket server closed, waiting for next new request')
+  clean_up_context(context)
 
 
 
-def websocket_server_thread(host, port, device_config, httpd):
-  '''Websocket server thread, runs the camera process on the backend.'''
+def entry_server_mode(device_config_path):
+  '''Serve the eye shooting game, until interrupted or stopped.'''
 
-  logging.info('starting the websocket server to listen for client requests')
+  content_root = get_bundled_path(osp.join('_app_data', 'sketch'))
 
-  ws_handler = functools.partial(server_process, device_config=device_config)
-  try:  # Run websocket server until gracefully terminated
-    asyncio.run(websocket_server(ws_handler, host, port))
-  except KeyboardInterrupt:
-    pass  # Ignore traceback if no websocket handler is running
+  device_config = load_config(device_config_path)
+  server_config = load_config(
+    config_path=get_bundled_path(osp.join('_app_data', 'estimator.toml')),
+    config_updater=device_config,
+  )['server']
+  httpd = http_server(directory=content_root, **server_config['http'])
 
-  logging.info('shutting down http server')
-  httpd.shutdown()
+  http_thread = threading.Thread(target=run_http_server, args=(httpd, ))
+  http_thread.start()
 
-  logging.info('websocket finished execution, now exiting')
+  game_url = 'http://{host}:{port}/demo.html'.format(**server_config['http'])
+  logging.info(f'serving eye shooting game on {game_url}')
 
+  ws_handler = functools.partial(websocket_handler, device_config=device_config)
+  run_websocket_server(ws_handler, httpd, **server_config['websocket'])
 
-def http_server_thread(httpd, http_host, http_port):
-  '''Http server thread, runs the preconfigured http server.'''
-
-  logging.info('starting the http server to serve static content')
-
-  with httpd:
-    try:  # Serve incoming requests
-      logging.info(f'game hosted on http://{http_host}:{http_port}/demo.html')
-      httpd.serve_forever()
-    except KeyboardInterrupt:
-      pass  # Exit on received Ctrl-C
-    finally:
-      httpd.server_close()
-
-  logging.info('http server finished execution, now exiting')
+  http_thread.join()
 
 
 
 def main_procedure(cmdargs: argparse.Namespace):
   if not is_running_in_bundle():
-    logging.error('this script should only be run from the bundled app.')
+    logging.error('this script should only be run from the bundled app')
     sys.exit(1) # Exit the execution
 
   device_config_path = osp.abspath(cmdargs.config)
-  device_config = load_toml_secure(device_config_path)
-  if device_config is None:
-    logging.error(f'please provide a valid configuration file with "--config <config>"')
-    sys.exit(1) # Exit the execution
-
-  httpd = create_httpd(
-    cmdargs.http_host, cmdargs.http_port, get_bundled_path(osp.join('_app_data', 'sketch')),
-  )
-
-  http_thread = threading.Thread(
-    target=http_server_thread,
-    args=(httpd, cmdargs.http_host, cmdargs.http_port),
-  )
-  http_thread.start()
-
-  websocket_server_thread(cmdargs.host, cmdargs.port, device_config, httpd)
-  http_thread.join()
+  entry_server_mode(device_config_path)
 
 
 
 if __name__ == '__main__':
-  configure_logging(logging.INFO, force=True)
-
   parser = argparse.ArgumentParser(description='Bootstrap the server and the client for bundled app.')
 
   parser.add_argument('--config', type=str, default='config.toml',
                       help='Device-specific configuration for this PoG estimator.')
 
-  # These options are for the websocket server. Users should not need to change these.
-  parser.add_argument('--host', type=str, default='localhost',
-                      help='The host address to bind the server to. Default is localhost.')
-  parser.add_argument('--port', type=int, default=4200,
-                      help='The port number to bind the server to. Default is 4200.')
-
-  # These options are for the HTTP server. They determine the URL to open in the browser.
-  parser.add_argument('--http-host', type=str, default='localhost',
-                      help='The host address to bind the HTTP server to. Default is localhost.')
-  parser.add_argument('--http-port', type=int, default=5500,
-                      help='The port number to bind the HTTP server to. Default is 5500.')
-
+  configure_logging(logging.INFO, force=True)
   main_procedure(parser.parse_args())

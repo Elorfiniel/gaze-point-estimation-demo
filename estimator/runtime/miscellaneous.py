@@ -6,14 +6,6 @@ import os
 import toml
 
 
-def configure_logging(level=logging.INFO, force=False):
-  logging.basicConfig(
-    level=level, force=force,
-    format='[ %(asctime)s ] process %(process)d - %(levelname)s: %(message)s',
-    datefmt='%m-%d %H:%M:%S',
-  )
-
-
 def load_toml_secure(toml_path, allow_pickle=True):
   '''Load toml file with caution, return None if failed.'''
 
@@ -34,9 +26,8 @@ def load_toml_secure(toml_path, allow_pickle=True):
 
   return toml_data
 
-
-def shrink_frame(image, src_res, tgt_res):
-  '''Shrink a larger source resolution to a smaller resolution that fits within.'''
+def rescale_frame(image, src_res, tgt_res, resize=True):
+  '''Rescale source resolution to target resolution (crop + resize).'''
 
   assert src_res[0] >= tgt_res[0] and src_res[1] >= tgt_res[1]
 
@@ -52,16 +43,11 @@ def shrink_frame(image, src_res, tgt_res):
     padding_w = (src_res[1] - rescale_w) // 2
     image = image[:, padding_w:-padding_w]
 
-  dsize = (tgt_res[1], tgt_res[0])
-  image = cv2.resize(image, dsize, interpolation=cv2.INTER_CUBIC)
+  if resize:
+    dsize = (tgt_res[1], tgt_res[0])
+    image = cv2.resize(image, dsize, interpolation=cv2.INTER_CUBIC)
 
   return image
-
-
-async def websocket_send_json(websocket, message_obj):
-  '''Send a JSON object over websocket.'''
-  await websocket.send(json.dumps(message_obj))
-
 
 def deep_update(target_dict: dict, new_dict: dict):
   '''Deeply update a dictionary with another dictionary.'''
@@ -75,3 +61,19 @@ def deep_update(target_dict: dict, new_dict: dict):
       target_dict[key] = value
 
   return target_dict
+
+def use_state(initial_value):
+  '''Create a closure to store a state variable, return getter and setter functions.'''
+
+  state = dict(value=copy.deepcopy(initial_value))
+
+  def get_value():
+    return state['value']
+
+  def set_value(fn_or_value):
+    if callable(fn_or_value):
+      state['value'] = fn_or_value(state['value'])
+    else:
+      state['value'] = fn_or_value
+
+  return get_value, set_value

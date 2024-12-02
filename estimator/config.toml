@@ -1,32 +1,37 @@
-# Device Specific Configuration for PoG Estimator (for bundled app)
+# Configuration for PoG Estimator
 
-# Laptop specific parameters, example (lenovo yoga c740)
-#   1. ID of the camera used to capture frames
-#   2. Offset of screen topleft corner in camera coordinate system
-#   3. Screen size (height, weight) in pixels and centimeters
-camera_id = 0
+# Inference Config
+#   1. Offset of screen topleft corner in camera coordinate system
+#   2. Screen size (height, weight) in pixels
+#   3. Screen size (height, weight) in centimeters
+[inference]
 topleft_offset = [-15.5, -0.5]
 screen_size_px = [1080, 1920]
 screen_size_cm = [17.4, 31.0]
 
-# The path to store the recordings, set to enable record mode
-#   Note: use an absolute path, or a relative path to the bootstrap EXE
-# record_path = 'demo-capture'
+# Capture Config
+#   1. ID of the camera used to capture frames
+#   2. Image resolution (h, w) for camera capture
+[capture]
+capture_id = 0
+resolution = [720, 1280]
 
-# Settings for camera check, used for server hello packet
-#   1. Enable camera check
-#   2. Rename folder name in record mode
-[check]
-camera = true
-rename = true
+# Server Config, only for Server mode
+#   1. Host and Port for websocket server
+#   2. Host and Port for http server
+#   3. Record mode configuration
+[server]
+websocket = { host = 'localhost', port = 4200 }
+http = { host = 'localhost', port = 5500 }
+record = { path = 'capture', inference = true }
 
 # Settings for gaze shooting game, used for server hello packet
-#   1. Countdown mode: seconds, targets
-#   2. Countdown value
-#   3. Aiming mode: pog, key, key+pog
-#   4. EnemyEmitter configs: name and extra arguments
+#   1. Check camera and record folder name
+#   2. Countdown mode (seconds, targets) and its value
+#   3. Aiming mode (pog, key, key+pog)
+#   4. EnemyEmitter configs (name and extra arguments)
 [game]
-countdown = 'seconds'
-value = 90
+check = { camera = true, rename = true }
+countdown = { mode = 'seconds', value = 90 }
 aiming = 'pog'
 emitter = { name = 'demo' }

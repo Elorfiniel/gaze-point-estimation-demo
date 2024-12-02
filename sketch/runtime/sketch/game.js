@@ -169,7 +169,7 @@ class GameSystem {
       aimY = this.activeEnemy.y
     }
 
-    if (status.gaze || status.spacebar) {
+    if (aimX !== undefined && aimY !== undefined) {
       this.cannonUpdateAngle(aimX, aimY)
     }
   }
@@ -276,7 +276,7 @@ class GameSystem {
       aimX, aimY, this.activeEnemy.x, this.activeEnemy.y,
       this.cannonNbDist, this.cannonNbAng,
     )
-    const status = {glared: glared, spacebar: spacebar, gaze: gazeValid}
+    const status = { glared: glared, spacebar: spacebar }
 
     this.cannonUpdate(aimX, aimY, status)
     this.enemyUpdate(status)

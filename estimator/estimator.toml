@@ -1,51 +1,75 @@
 # Configuration for PoG Estimator
 
-# Checkpoint path (absolute or relative to the directory of this config)
-checkpoint = 'checkpoint/model.onnx'
+# Checkpoint Config
+#   1. Path, absolute or relative to the directory of this config
+[checkpoint]
+model_path = 'checkpoint/model.onnx'
 
-# Resize image crops for estimator, use default: 224x224
-face_resize = [224, 224]
-eyes_resize = [224, 224]
+# Transform Config, used for Preprocess
+#   1. Rescale to resolution (h, w) before image is sent to model
+[transform]
+rescale = { index = 0, tgt_res = [480, 640], resize = true }
 
-# Laptop specific parameters, example (lenovo yoga c740)
-#   1. ID of the camera used to capture frames
-#   2. Offset of screen topleft corner in camera coordinate system
-#   3. Screen size (height, weight) in pixels and centimeters
-camera_id = 0
+# Alignment Config
+#   1. Whether to treat the input as stand-alone images
+#   2. Minimum confidence value (0.0, 1.0) for successful face detection
+#   3. Minimum confidence value (0.0, 1.0) for successful face tracking
+[alignment]
+static_image_mode = true
+min_detection_confidence = 0.8
+min_tracking_confidence = 0.5
+
+# Inference Config
+#   1. Offset of screen topleft corner in camera coordinate system
+#   2. Screen size (height, weight) in pixels
+#   3. Screen size (height, weight) in centimeters
+#   4. Resize input face image for estimator, use default: 224x224
+#   5. Resize input eye images for estimator, use default: 224x224
+#   6. Parameters for one-euro filter along x-axis
+#   7. Parameters for one-euro filter along y-axis
+[inference]
 topleft_offset = [-15.5, -0.5]
 screen_size_px = [1080, 1920]
 screen_size_cm = [17.4, 31.0]
-
-# Set image resolution (height, weight) for camera capture and model input
-capture_resolution = [720, 1280]
-target_resolution = [480, 640]
-
-# Display the captured frame inside a preview window
-#   1. Preview mode: none, full, frame
-#   2. Name of the preview window
-#   3. Items to display in 'full' or 'frame' preview mode
-pv_mode = 'none'
-pv_window = 'preview'
-pv_items = ['frame', 'gaze', 'time', 'warn']
-
-# Configuration for One-Euro filters
+face_resize = [224, 224]
+eyes_resize = [224, 224]
 gx_filt_params = { beta = 0.01, min_cutoff = 0.02, d_cutoff = 1.2, clock = true }
 gy_filt_params = { beta = 0.01, min_cutoff = 0.02, d_cutoff = 1.2, clock = true }
 
-# Settings for camera check, used for server hello packet
-#   1. Enable camera check
-#   2. Rename folder name in record mode
-[check]
-camera = true
-rename = true
+# Capture Config
+#   1. ID of the camera used to capture frames
+#   2. Image resolution (h, w) for camera capture
+[capture]
+capture_id = 0
+resolution = [720, 1280]
+
+# Preview Config, only for Preview mode
+#   1. Preview mode: none, full, frame
+#   2. Name of the preview window
+#   3. Items to display in 'full' or 'frame' preview mode
+#   4. Preview window size (h, w) in pixels
+[preview]
+pv_mode = 'full'
+pv_window = 'preview'
+pv_items = ['frame', 'gaze', 'time', 'warn']
+pv_size = [1080, 1920]
+
+# Server Config, only for Server mode
+#   1. Host and Port for websocket server
+#   2. Host and Port for http server
+#   3. Record mode configuration
+[server]
+websocket = { host = 'localhost', port = 4200 }
+http = { host = 'localhost', port = 5500 }
+record = { path = 'capture', inference = true }
 
 # Settings for gaze shooting game, used for server hello packet
-#   1. Countdown mode: seconds, targets
-#   2. Countdown value
-#   3. Aiming mode: pog, key, key+pog
-#   4. EnemyEmitter configs: name and extra arguments
+#   1. Check camera and record folder name
+#   2. Countdown mode (seconds, targets) and its value
+#   3. Aiming mode (pog, key, key+pog)
+#   4. EnemyEmitter configs (name and extra arguments)
 [game]
-countdown = 'seconds'
-value = 90
+check = { camera = true, rename = true }
+countdown = { mode = 'seconds', value = 90 }
 aiming = 'pog'
 emitter = { name = 'demo' }

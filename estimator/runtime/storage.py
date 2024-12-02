@@ -11,32 +11,32 @@ class FrameCache():
     self.frame_count = 0
     self.max_count = max_count
     self.frame_cache = []
-    self.tid_cache = []
+    self.fid_cache = []
 
-  def insert_frame(self, frame, tid):
+  def insert_frame(self, frame, fid):
     if self.frame_count >= self.max_count:
       self.frame_cache.pop(0)
-      self.tid_cache.pop(0)
+      self.fid_cache.pop(0)
       self.frame_count -= 1
 
     self.frame_cache.append(frame)
-    self.tid_cache.append(tid)
+    self.fid_cache.append(fid)
     self.frame_count += 1
 
-  def fast_fetch(self, tid):
+  def fast_fetch(self, fid):
     fetched_item = None
 
-    try:  # Find the frame tagged 'tid'
-      item_idx = self.tid_cache.index(tid)
+    try:  # Find the frame tagged 'fid'
+      item_idx = self.fid_cache.index(fid)
       fetched_item = self.frame_cache[item_idx]
 
       self.frame_cache = self.frame_cache[item_idx + 1:]
-      self.tid_cache = self.tid_cache[item_idx + 1:]
+      self.fid_cache = self.fid_cache[item_idx + 1:]
       self.frame_count -= (item_idx + 1)
 
     except ValueError:
       self.frame_cache = []
-      self.tid_cache = []
+      self.fid_cache = []
       self.frame_count = 0
 
     return fetched_item
@@ -65,8 +65,8 @@ class RecordingManager():
     except Exception as ex:
       logging.warning(f'cannot make recording folder "{folder_path}", due to {ex}')
 
-  def save_frame(self, frame, px, py, lx, ly, image_ext='.jpg'):
-    item_label = f'{px:.4f}_{py:.4f}_{lx:.4f}_{ly:.4f}'
+  def save_frame(self, frame, gx, gy, lx, ly, image_ext='.jpg'):
+    item_label = f'{gx:.4f}_{gy:.4f}_{lx:.4f}_{ly:.4f}'
     frame_name = f'{self.item_count:05d} {item_label}.jpg'
 
     frame_path = os.path.join(self.root, self.folder, frame_name)

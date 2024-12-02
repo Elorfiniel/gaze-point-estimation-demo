@@ -14,7 +14,7 @@ The demo consists of a Python backend (server) and a JavaScript frontend (client
 2. Start the python backend (`estimator/estimator.py`).
 3. Visit the hosted demo webpage (`sketch/demo.html`).
 
-The following cheatsheet demonstrates how you can setup and run this demo from the command line. Alternatively, you can serve the demo webpage on your own (for instance, using the [Live Server Extension](https://marketplace.visualstudio.com/items?itemName=ritwickdey.LiveServer) in Visual Studio Code).
+The following cheatsheet demonstrates how you can setup and run this demo from the command line. ~~Alternatively, you can serve the demo webpage on your own (for instance, using the [Live Server Extension](https://marketplace.visualstudio.com/items?itemName=ritwickdey.LiveServer) in Visual Studio Code).~~ The latest update integrates an http server in the backend, so simply open the webpage (default: `http://localhost:5500/demo.html`) in the browser.
 
 ### Install Dependencies
 
@@ -36,16 +36,12 @@ Now, you'll have the environment properly setup.
 ### Run the Demo
 
 ```shell
-# start the python backend (server)
-cd estimator
-python estimator.py
-
-# start the javascript frontend (client)
-cd sketch
-python -m http.server --bind 127.0.0.1 5500
+# start the python backend (aka. the server)
+# the frontend will be served automatically
+cd estimator && python estimator.py --mode server
 ```
 
-Now, open the browser and visit [the demo page](http://127.0.0.1:5500/demo.html) served on `localhost:5500`.
+Now, open the browser and visit [the demo page](http://localhost:5500/demo.html) served on `localhost:5500`.
 
 ## Configuration
 
@@ -57,13 +53,14 @@ Most notably, you may need to adjust the `topleft_offset` (measured in centimete
 
 The demo uses **the record mode** to capture the PoG from the javascript frontend and the face image from the python backend. This functionality is intended for the collection of [GazeCapture](https://gazecapture.csail.mit.edu/)-like datasets, so that the model can be trained and improved on the captured data.
 
-To enable the record mode, set `--record-mode` flag and specify the output directory using `--record-path`. For instance, you can run the following command to record the PoG and face image to `demo-capture` directory:
+To enable the record mode, open configuration `estimator/estimator.toml`, then adjust the `record` field in the `server` table by specifying a non-empty output directory using `path`. For instance, you can use the following config to record the PoG and face image to `demo-capture` directory:
 
-```shell
-python estimator.py --record-mode --record-path demo-capture
+```toml
+[server]
+record = { path = 'demo-capture', inference = true }
 ```
 
-The above command will create a `demo-capture` directory in the current folder (`estimator`) and save the captured PoGs and face images in the corresponding subfolders, named using the timestamp. Each subfolder contains a list of images named using format `<frame_count> <image_label>.jpg`, where the `<image_label>` is a string that indicates the image label, given by the predictor and the groundtruth (namely, `<px>_<py>_<gx>_<gy>`).
+The above config will create a `demo-capture` directory and save the captured PoGs and face images in the corresponding subfolders, named using either the timestamp or the custom name specified in the frontend. Each subfolder contains a list of images named using format `<frame_count> <image_label>.jpg`, where the `<image_label>` is a string that indicates the image label, given by the predictor and the groundtruth (namely, `<px>_<py>_<gx>_<gy>`).
 
 ## Bundled App
 
@@ -92,4 +89,4 @@ The demo converts the estimated PoG to a 2D point on canvas using the following 
 2. `Screen` to `Canvas`: convert the estimated PoG from the screen coordinate frame to the canvas coordinate frame (centered at the top-left corner of the visual viewport, $x_+$: right, $y_+$: down), which also involves the conversion from centimeters to pixels.
 3. Adjustments: The PoG is adjusted to account for the visual viewport's movement, such as when the user "drag and move" the browser window.
 
-Run the demo in a browser window. No fullscreen mode nor fixed window location are required.
+Run the demo in a browser window. No fullscreen mode nor fixed window location are required. Furthermore, the demo has only been **tested successfully in Edge** while Chrome presents wrong measurement of the window size.

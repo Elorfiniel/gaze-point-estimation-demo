@@ -27,6 +27,10 @@ class PoGAiming {
     return status.glared
   }
 
+  onTarget(track, value) {
+    return track == true && value / this.limit >= this.saveThres
+  }
+
   draw(enemyX, enemyY, value) {
     push()
 
@@ -77,6 +81,10 @@ class KeyAiming {
 
   cannonUpdate(status) {
     return status.spacebar
+  }
+
+  onTarget(track, value) {
+    return track == true && value / this.limit >= this.saveThres
   }
 
   draw(enemyX, enemyY, value) {
@@ -138,6 +146,10 @@ class KeyPoGAiming {
     return this.strategy !== undefined && this.strategy.cannonUpdate(status)
   }
 
+  onTarget(track, value) {
+    return this.strategy !== undefined && this.strategy.onTarget(track, this.value)
+  }
+
   draw(enemyX, enemyY, value) {
     if (this.strategy !== undefined) {
       this.strategy.draw(enemyX, enemyY, this.value)
@@ -196,11 +208,7 @@ class Aiming {
   }
 
   onTarget() {
-    if (this.record.track != false) {
-      const ratio = this.record.value / this.strategy.limit
-      if (ratio >= this.strategy.saveThres) return true
-    }
-    return false
+    return this.strategy.onTarget(this.record.track, this.record.value)
   }
 
   cannonUpdate(status) {

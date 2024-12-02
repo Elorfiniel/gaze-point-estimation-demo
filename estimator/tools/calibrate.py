@@ -55,7 +55,7 @@ def _prepare_calib_data(model, tmp_folder, recording, labels, image_ext,
 
   # genetate calibration data by inference
   from runtime.facealign import FaceAlignment
-  from runtime.miscellaneous import shrink_frame
+  from runtime.miscellaneous import rescale_frame
   from runtime.inference import predict_model_output
 
   alignment = FaceAlignment(static_image_mode=False, min_detection_confidence=0.80)
@@ -65,7 +65,7 @@ def _prepare_calib_data(model, tmp_folder, recording, labels, image_ext,
     for image_id, pred in zip(label['ids'], label['preds']):
       image_basename = f"{image_id} {'_'.join(pred + label['gts'])}" + image_ext
       image_path = osp.join(recording, image_basename)
-      image = shrink_frame(cv2.imread(image_path), src_res, tgt_res)
+      image = rescale_frame(cv2.imread(image_path), src_res, tgt_res)
       image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
 
       landmarks, theta = alignment.process(image)
@@ -267,7 +267,7 @@ def calibration_preview(model, calib_model, camera_id,
                         gx_filt_params=dict(), gy_filt_params=dict()):
   from runtime.facealign import FaceAlignment
   from runtime.inference import gaze_vec_to_screen_xy, predict_model_output
-  from runtime.miscellaneous import shrink_frame
+  from runtime.miscellaneous import rescale_frame
   from runtime.pipeline import rotate_vector_a
   # from runtime.one_euro import OneEuroFilter
   from runtime.preview import (
@@ -299,7 +299,7 @@ def calibration_preview(model, calib_model, camera_id,
     success, source_image = capture.read()
     if not success: continue
 
-    image = shrink_frame(source_image, capture_resolution, target_resolution)
+    image = rescale_frame(source_image, capture_resolution, target_resolution)
     rgb_image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
     landmarks, theta = alignment.process(rgb_image)
 

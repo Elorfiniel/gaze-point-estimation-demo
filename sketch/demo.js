@@ -21,7 +21,7 @@ function createViewHelper(name, ctx, draw_fn = (c) => {}, update_fn = (c) => {})
   ctx.views.add(name, view)
 }
 
-function rescalePatch(srcW, srcH, tgtW, tgtH) {
+function rescaleFrame(srcW, srcH, tgtW, tgtH) {
   const srcAsp = srcW / srcH
   const tgtAsp = tgtW / tgtH
 
@@ -122,10 +122,12 @@ function createViewsForIntro(ctx) {
         c.values.add('init-outer-y', screenTop)
         c.display.setViewportOffset(devMouseX - winMouseX, devMouseY - winMouseY)
 
-        const checkSettings = c.values.get('check-settings')
+        const gameSettings = c.values.get('game-settings')
         const recordMode = c.values.get('record-mode')
 
-        const checkPage = recordMode && checkSettings.rename || checkSettings.camera
+        const checkPage1 = recordMode && gameSettings.check['rename']
+        const checkPage2 = gameSettings.check['camera']
+        const checkPage = checkPage1 || checkPage2
         const nextState = checkPage ? c.states.states.CHECK : c.states.states.ONCAM
         c.states.setFutureState(nextState)
       }
@@ -164,7 +166,7 @@ function createViewsForIntro(ctx) {
       text(buttonText, 844.0 + uiShiftX, 611.8 + uiShiftY)
 
       if (onHover && mouseIsPressed) {
-        c.socket.sendMessage({ opcode: 'kill-server' })
+        c.socket.sendMessage({ opcode: 'kill_server' })
       }
     },
   )
@@ -179,14 +181,14 @@ function createViewsForCheck(ctx) {
     'check-camera',
     ctx,
     (c) => {
-      const checkSettings = c.values.get('check-settings')
-      if (checkSettings.camera == false) {
+      const gameSettings = c.values.get('game-settings')
+      if (gameSettings.check['camera'] == false) {
         imageShiftY = 0
         return
       }
 
-      const [idealH, idealW] = checkSettings.srcRes
-      const [imageH, imageW] = checkSettings.tgtRes
+      const [idealH, idealW] = gameSettings.check['src_res']
+      const [imageH, imageW] = gameSettings.check['tgt_res']
 
       let [uiShiftX, uiShiftY] = c.values.get('ui-shift')
 
@@ -209,7 +211,7 @@ function createViewsForCheck(ctx) {
         c.values.add('check-camera', camera)
       }
 
-      const [sx, sy, sw, sh] = rescalePatch(camera.width, camera.height, imageW, imageH)
+      const [sx, sy, sw, sh] = rescaleFrame(camera.width, camera.height, imageW, imageH)
 
       imageMode(CENTER)
       image(
@@ -226,9 +228,9 @@ function createViewsForCheck(ctx) {
     'record-name',
     ctx,
     (c) => {
-      const checkSettings = c.values.get('check-settings')
+      const gameSettings = c.values.get('game-settings')
       const recordMode = c.values.get('record-mode')
-      if (recordMode == false || checkSettings.rename == false) return
+      if (recordMode == false || gameSettings.check['rename'] == false) return
 
       let [uiShiftX, uiShiftY] = c.values.get('ui-shift')
       uiShiftY += imageShiftY == 0 ? 0 : (imageShiftY + 0.5 * 50)
@@ -343,14 +345,15 @@ function createViewsForGame(ctx) {
 
       let message = '剩余', remain = 0
 
-      if (gameSettings.countdown == 'seconds') {
+      if (gameSettings.countdown['mode'] == 'seconds') {
         const start = c.values.get('game-start')
         const past = Math.floor(((new Date()).getTime() - start.getTime()) / 1000)
-        remain = gameSettings.value < past ? 0 : gameSettings.value - past
+        remain = gameSettings.countdown['value'] < past ?
+          0 : gameSettings.countdown['value'] - past
         message += `时间：${remain}s`
       }
-      if (gameSettings.countdown == 'targets') {
-        remain = gameSettings.value - c.game.getGameScore()
+      if (gameSettings.countdown['mode'] == 'targets') {
+        remain = gameSettings.countdown['value'] - c.game.getGameScore()
         message += `敌机：${remain}`
       }
 
@@ -487,28 +490,27 @@ function createViewsForOutro(ctx) {
  */
 function configureSocket(ctx) {
   ctx.socket.setOnMessage((msgObj) => {
-    if (msgObj.status == 'server-on') {
-      const [cx, cy] = msgObj.topleftOffset
+    if (msgObj.status == 'server_on') {
+      const [cx, cy] = msgObj['topleft_offset']
       ctx.display.setScreenOrigin(cx, cy)
-      const [ah, aw] = msgObj.screenSizeCm
+      const [ah, aw] = msgObj['screen_size_cm']
       ctx.display.setActualSize(ah, aw)
       ctx.display.setScreenSize(screen.height, screen.width)
 
-      ctx.values.add('record-mode', msgObj.recordMode)
-      ctx.values.add('check-settings', msgObj.checkSettings)
-      ctx.values.add('game-settings', msgObj.gameSettings)
+      ctx.values.add('record-mode', msgObj['record_mode'])
+      ctx.values.add('game-settings', msgObj['game_settings'])
     }
 
-    if (msgObj.status == 'camera-on') {
+    if (msgObj.status == 'camera_on') {
       ctx.values.add('camera-on', true)
     }
 
-    if (msgObj.status == 'camera-off') {
+    if (msgObj.status == 'camera_off') {
       ctx.values.add('camera-off', true)
     }
 
-    if (msgObj.status == 'next-ready') {
-      ctx.values.add('gaze', {gx: msgObj.gaze_x, gy: msgObj.gaze_y, tid: msgObj.tid})
+    if (msgObj.status == 'next_ready') {
+      ctx.values.add('gaze', {gx: msgObj.gx, gy: msgObj.gy, fid: msgObj.fid})
       ctx.values.add('next-ready', true)
       ctx.values.add('next-valid', msgObj.valid)
     }
@@ -660,11 +662,13 @@ function drawWhenGame(ctx) {
       const [ax, ay] = ctx.display.screen2actual(sx, sy)
 
       ctx.socket.sendMessage({
-        opcode: 'save-gaze',
-        tid: gazeInfo.tid,
-        gaze_x: nextValid ? gazeInfo.gx : 0,
-        gaze_y: nextValid ? gazeInfo.gy : 0,
-        label_x: ax, label_y: ay,
+        opcode: 'save_result',
+        result: {
+          fid: gazeInfo.fid,
+          gx: nextValid ? gazeInfo.gx : 0,
+          gy: nextValid ? gazeInfo.gy : 0,
+          lx: ax, ly: ay,
+        },
       })
     }
   }
@@ -742,19 +746,19 @@ function actOnSwitchToCheck(ctx) {
 }
 
 function actOnSwitchToOncam(ctx) {
-  const checkSettings = ctx.values.get('check-settings')
+  const gameSettings = ctx.values.get('game-settings')
   const recordMode = ctx.values.get('record-mode')
 
-  let message = { opcode: 'open-cam' }
+  let message = { opcode: 'open_camera' }
 
-  if (checkSettings.camera == true) {
+  if (gameSettings.check['camera'] == true) {
     const camera = ctx.values.pop('check-camera')
     camera.remove()
   }
 
-  if (recordMode && checkSettings.rename == true) {
+  if (recordMode && gameSettings.check['rename'] == true) {
     const name = ctx.values.get('record-name')
-    message.record_name = name.value()
+    message['record_name'] = name.value()
     name.hide()
   }
 
@@ -765,13 +769,13 @@ function actOnSwitchToGame(ctx) {
   const gameSettings = ctx.values.get('game-settings')
   ctx.game = new GameSystem(windowWidth / 2, -2, gameSettings.aiming, gameSettings.emitter)
 
-  if (gameSettings.countdown == 'seconds') {
+  if (gameSettings.countdown['mode'] == 'seconds') {
     ctx.values.add('game-start', new Date())
   }
 }
 
 function actOnSwitchToClose(ctx) {
-  ctx.socket.sendMessage({ opcode: 'kill-cam', hard: false })
+  ctx.socket.sendMessage({ opcode: 'kill_camera', hard: false })
 }
 
 function actOnSwitchToOutro(ctx) {
@@ -821,7 +825,7 @@ function draw() {
  */
 window.onbeforeunload = (e) => {
   if (context.socket !== undefined) {
-    context.socket.sendMessage({ opcode: 'kill-cam', hard: true })
+    context.socket.sendMessage({ opcode: 'kill_camera', hard: true })
     context.socket.closeSocket()
   }
 }

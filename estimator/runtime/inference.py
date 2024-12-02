@@ -1,10 +1,14 @@
+from runtime.one_euro import OneEuroFilter
 from runtime.pipeline import (
   prepare_model_input,
   rotate_vector_a,
   do_model_inference,
 )
 
+import cv2
+import functools
 import numpy as np
+import time
 
 
 def clamp_with_converter(value, v_min, v_max, converter=None):
@@ -43,9 +47,9 @@ def predict_model_output(model, crops, norm_ldmks, face_resize, eyes_resize):
 
   return ort_outputs
 
-def predict_screen_xy(model, crops, norm_ldmks, face_resize, eyes_resize,
-                      theta, topleft_offset, screen_size_px, screen_size_cm,
-                      gx_filter, gy_filter):
+def predict_screen_xy(model, crops, norm_ldmks, theta,
+                      topleft_offset, screen_size_px, screen_size_cm,
+                      face_resize, eyes_resize, gx_filter, gy_filter):
   ort_outputs = predict_model_output(model, crops, norm_ldmks, face_resize, eyes_resize)
 
   # Gaze point predicted by model should be projected from prediction space
@@ -65,3 +69,71 @@ def predict_screen_xy(model, crops, norm_ldmks, face_resize, eyes_resize,
     gaze_screen_xy = (gx, gy)
 
   return gaze_screen_xy, gaze_vec
+
+
+class Inferencer:
+  def __init__(self, topleft_offset, screen_size_px, screen_size_cm,
+               face_resize=(224, 224), eyes_resize=(224, 224),
+               gx_filt_params=dict(), gy_filt_params=dict()):
+    '''Initailize inference pipeline with device specific parameters.
+
+    `topleft_offset`: offset of screen topleft corner in camera coordinate system.
+
+    `screen_size_px`: screen size (height, weight) in pixels.
+
+    `screen_size_cm`: screen size (height, weight) in centimeters.
+
+    `face_resize`: resize input face image for estimator.
+
+    `eyes_resize`: resize input eye images for estimator.
+
+    `gx_filt_params`: parameters for one-euro filter along x-axis.
+
+    `gy_filt_params`: parameters for one-euro filter along y-axis.
+    '''
+
+    self.hw_ratio = eyes_resize[1] / eyes_resize[0]
+    self.predict_fn = functools.partial(
+      predict_screen_xy,
+      topleft_offset=topleft_offset,
+      screen_size_px=screen_size_px,
+      screen_size_cm=screen_size_cm,
+      face_resize=face_resize,
+      eyes_resize=eyes_resize,
+    )
+    self.gx_filter = OneEuroFilter(**gx_filt_params)
+    self.gy_filter = OneEuroFilter(**gy_filt_params)
+
+  def run(self, model, align, image, to_rgb=True):
+    '''Run inference with model on the aligned image.
+
+    Returns a result dictionary with the following keys:
+      success: bool, whether the inference was successful.
+      pog_scn: filtered PoG (x, y) in screen coordinate frame.
+      pog_cam: non-filtered PoG (x, y) in camera coordinate frame.
+      time: inference time in seconds.
+
+    Note that pog_scn and pog_cam are returned only on success.
+    '''
+
+    result = dict(success=False)
+    inference_start = time.time()
+
+    if to_rgb: image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+    landmarks, theta = align.process(image)
+    if len(landmarks) > 0:
+      crops, norm_ldmks, _ = align.get_face_crop(
+        image, landmarks, theta, hw_ratio=self.hw_ratio,
+      )
+      pog_scn, pog_cam = self.predict_fn(
+        model, crops, norm_ldmks, theta,
+        gx_filter=self.gx_filter, gy_filter=self.gy_filter,
+      )
+
+      inference_finish = time.time()
+      result.update(dict(
+        success=True, pog_scn=pog_scn, pog_cam=pog_cam,
+        time=inference_finish - inference_start,
+      ))
+
+    return result

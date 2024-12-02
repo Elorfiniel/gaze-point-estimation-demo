@@ -1,13 +1,16 @@
+from runtime.captures import VideoCaptureBuilder, CaptureHandler
 from runtime.facealign import FaceAlignment
-from runtime.inference import predict_screen_xy
-from runtime.miscellaneous import *
-from runtime.one_euro import OneEuroFilter
+from runtime.inference import Inferencer
+from runtime.miscellaneous import deep_update, load_toml_secure
 from runtime.pipeline import load_model
 from runtime.preview import *
+from runtime.server import http_server, websocket_server
 from runtime.storage import FrameCache, RecordingManager
+from runtime.transform import Transforms
 
 import argparse
 import asyncio
+import copy
 import cv2
 import functools
 import json
@@ -16,378 +19,400 @@ import multiprocessing as mp
 import numpy as np
 import os.path as osp
 import queue
-import time
+import threading
 import websockets
 
 
-def fetch_save_task(save_queue, frame_cache, recording_manager):
-  try:  # Fetch save task from save queue
-    tid, px, py, lx, ly = save_queue.get(timeout=0.01)
-    fetched_item = frame_cache.fast_fetch(tid)
+class PreviewFrameConsumer:
+  def __call__(self, src_image, set_exit_cond, pipeline):
+    image, result = pipeline(src_image)
+    exit_cond = self.display(image, result)
+    set_exit_cond(exit_cond)
 
-    if fetched_item is not None:
-      recording_manager.save_frame(fetched_item, px, py, lx, ly)
+  def __init__(self, **preview_config):
+    self.pv_mode = preview_config['pv_mode']
+    self.pv_window = preview_config['pv_window']
+    self.pv_items = preview_config['pv_items']
+    self.pv_size = preview_config['pv_size']
 
-  except queue.Empty:
-    pass  # Nothing to save
+  def __enter__(self):
+    if self.pv_mode == 'full':
+      cv2.namedWindow(self.pv_window, cv2.WND_PROP_FULLSCREEN)
+      cv2.setWindowProperty(self.pv_window, cv2.WND_PROP_FULLSCREEN, cv2.WINDOW_FULLSCREEN)
 
-def camera_handler(model, camera_id,
-                   topleft_offset, screen_size_px, screen_size_cm,
-                   capture_resolution, target_resolution,
-                   face_resize=(224, 224), eyes_resize=(224, 224),
-                   pv_mode='none', pv_window='preview',
-                   pv_items=['frame', 'gaze', 'time', 'warn'],
-                   gx_filt_params=dict(), gy_filt_params=dict(),
-                   server_params=None, **extra_kwargs):
-  server_mode = server_params is not None and isinstance(server_params, dict)
+    if self.pv_mode == 'frame':
+      cv2.namedWindow(self.pv_window, cv2.WND_PROP_AUTOSIZE)
 
-  if server_mode:
-    frame_count = 0
+  def __exit__(self, exc_type, exc_val, exc_tb):
+    if self.pv_mode != 'none':
+      cv2.destroyWindow(self.pv_window)
 
-    if server_params['record_path']:
-      # Create a recording manager to save captured frames
-      frame_cache = FrameCache(max_count=600)
-      recording_manager = RecordingManager(root=server_params['record_path'])
-      recording_manager.new_recording(server_params['record_name'])
+  def display(self, image, result):
+    background = np.zeros(shape=self.pv_size + [3], dtype=np.uint8)
+    canvas = create_pv_canvas(image, background, self.pv_mode, self.pv_items)
 
-  # Create a video capture for the specified camera id
-  capture = cv2.VideoCapture(camera_id)
-  capture.set(cv2.CAP_PROP_FRAME_HEIGHT, capture_resolution[0])
-  capture.set(cv2.CAP_PROP_FRAME_WIDTH, capture_resolution[1])
-
-  # Prepare blank background for preview
-  background = None
-  if pv_mode == 'full':
-    background = np.zeros(shape=screen_size_px + [3], dtype=np.uint8)
-    cv2.namedWindow(pv_window, cv2.WND_PROP_FULLSCREEN)
-    cv2.setWindowProperty(pv_window, cv2.WND_PROP_FULLSCREEN, cv2.WINDOW_FULLSCREEN)
-  if pv_mode == 'frame':
-    cv2.namedWindow(pv_window, cv2.WND_PROP_AUTOSIZE)
-
-  # Initialize location filters for the predicted point of gaze
-  gx_filter = OneEuroFilter(**gx_filt_params)
-  gy_filter = OneEuroFilter(**gy_filt_params)
-
-  # Initialize mediapipe pipeline for face mesh detection
-  alignment = FaceAlignment(static_image_mode=False, min_detection_confidence=0.80)
-
-  # [Warn] Normally, the camera will be opened correctly, check this on failure
-  logging.info(f'camera id {camera_id}, camera is opened {capture.isOpened()}')
-
-  # Notify the parent process (websocket server, blocking)
-  if server_mode:
-    server_params['open_event'].set()
-
-  while (not server_params['kill_event'].is_set() if server_mode else True):
-    success, source_image = capture.read()
-    if not success: continue
-
-    # measure clock for all inference steps
-    inference_start = time.time()
-
-    image = shrink_frame(source_image, capture_resolution, target_resolution)
-    rgb_image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
-    landmarks, theta = alignment.process(rgb_image)
-
-    canvas = create_pv_canvas(image, background, pv_mode, pv_items)
-
-    gaze_screen_xy = None # Reset before next prediction
-
-    if len(landmarks) > 0:
-      # Get face crop, eye crops and face landmarks
-      hw_ratio = eyes_resize[1] / eyes_resize[0]
-      crops, norm_ldmks, new_ldmks = alignment.get_face_crop(
-        rgb_image, landmarks, theta, hw_ratio=hw_ratio)
-      # Inference: predict PoG on the screen
-      gaze_screen_xy, gaze_vec = predict_screen_xy(
-        model, crops, norm_ldmks, face_resize, eyes_resize,
-        theta, topleft_offset, screen_size_px, screen_size_cm,
-        gx_filter, gy_filter,
-      )
-
-      # measure clock for all inference steps
-      inference_finish = time.time()
-      inference_time = inference_finish - inference_start
-
-      # Display extra information on the preview
-      if gaze_screen_xy is not None:
-        display_gaze_on_canvas(canvas, gaze_screen_xy, pv_mode, pv_items)
-      display_time_on_canvas(canvas, inference_time, pv_mode, pv_items)
-
+    if result['success']: # Display extra information on the preview
+      if result['pog_scn'] is not None:
+        display_gaze_on_canvas(canvas, result['pog_scn'], self.pv_mode, self.pv_items)
+      display_time_on_canvas(canvas, result['time'], self.pv_mode, self.pv_items)
     else:
-      display_warning_on_canvas(canvas, pv_mode, pv_items)
+      display_warning_on_canvas(canvas, self.pv_mode, self.pv_items)
 
-    if server_mode:
-      # Save the latest PoG inside the shared array
-      with server_params['value_lock']:
-        if gaze_screen_xy is not None:
-          server_params['value_bank'][0] = gaze_vec[0] # Gaze: x
-          server_params['value_bank'][1] = gaze_vec[1] # Gaze: y
-          server_params['next_valid'].value = True     # PoG: valid
-        else:
-          server_params['next_valid'].value = False
+    return display_canvas(self.pv_window, canvas, self.pv_mode, self.pv_items)
 
-        server_params['value_bank'][2] = frame_count   # Tid: frame
-      server_params['next_ready'].set()
+class ServerFrameConsumer:
+  def __call__(self, src_image, set_exit_cond, pipeline):
+    result = pipeline(src_image)
+    exit_cond = self.process(src_image, result)
+    set_exit_cond(exit_cond)
 
-      if server_params['record_path']:
-        frame_cache.insert_frame(source_image, frame_count)
-      frame_count += 1
+  def __init__(self, open_event, kill_event, sync_result, record_info):
+    self.open_event = open_event
+    self.kill_event = kill_event
 
-    if display_canvas(pv_window, canvas, pv_mode, pv_items): break
+    self.sync_result = sync_result
+    self.record_info = record_info
 
-    if server_mode:
-      # Save the captured frame on disk, if any
-      if server_params['record_path'] and not server_params['save_queue'].empty():
-        fetch_save_task(server_params['save_queue'], frame_cache, recording_manager)
+    self.frame_count = 0
 
-  # Destroy named windows used for preview
-  if pv_mode != 'none':
-    cv2.destroyAllWindows()
+  def __enter__(self):
+    self.open_event.set() # Notify the parent process (websocket server, blocking)
 
-  alignment.close()
-  capture.release()
+    if self.record_info['enable']:
+      self.frame_cache = FrameCache(self.record_info['cache_size'])
+      self.rec_manager = RecordingManager(self.record_info['root'])
+      self.rec_manager.new_recording(self.record_info['name'])
 
-  if server_mode:
-    # Flush the remaining save task inside the save queue
-    while server_params['record_path'] and not server_params['save_queue'].empty():
-      fetch_save_task(server_params['save_queue'], frame_cache, recording_manager)
+  def __exit__(self, exc_type, exc_val, exc_tb):
+    if self.record_info['enable']:
+      while not self.record_info['save_queue'].empty():
+        self.save_frame_in_queue(self.record_info['save_queue'])
 
-def camera_process(config, record_path, record_name, save_queue,
-                   open_event, kill_event, value_bank, value_lock,
-                   next_ready, next_valid):
-  '''Load model using configuration, start the camera handler.'''
+  def process(self, src_image, result):
+    self.sync_result(result, self.frame_count)
 
-  logging.info('gaze point estimator will start in a few seconds')
+    if self.record_info['enable']:
+      self.frame_cache.insert_frame(src_image, self.frame_count)
+      if not self.record_info['save_queue'].empty():
+        self.save_frame_in_queue(self.record_info['save_queue'])
 
-  # Load estimator checkpoint from file system
-  model = load_model(config.pop('__config_path'), config.pop('checkpoint'))
+    self.frame_count += 1
 
-  # Handle control to camera handler
-  server_params = dict(
-    open_event=open_event,
-    kill_event=kill_event,
-    value_bank=value_bank,
-    value_lock=value_lock,
-    next_ready=next_ready,
-    next_valid=next_valid,
-    record_path=record_path,
-    record_name=record_name,
-    save_queue=save_queue,
-  )
-  camera_handler(model, **config, server_params=server_params)
+    return self.kill_event.is_set()
 
-  logging.info('gaze point estimator has been safely closed, now terminating')
+  def save_frame_in_queue(self, save_queue):
+    try:  # Fetch save task from save queue
+      result_item = save_queue.get(timeout=0.01)
+      fetched_item = self.frame_cache.fast_fetch(result_item['fid'])
+
+      if fetched_item is not None:
+        self.rec_manager.save_frame(
+          fetched_item,
+          result_item['gx'], result_item['gy'],
+          result_item['lx'], result_item['ly'],
+        )
+
+    except queue.Empty:
+      pass  # Nothing to save
 
 
 
-async def server_hello(websocket, config, record_mode, check, game):
-  if check['camera']:
-    check['srcRes'] = config['capture_resolution']
-    check['tgtRes'] = config['target_resolution']
+def load_config(config_path, config_updater: dict = None, update_none: bool = False):
+  config = load_toml_secure(config_path)
 
-  # Send "server-on" to notify the client
-  await websocket_send_json(websocket, {
-    'status': 'server-on',
-    'topleftOffset': config['topleft_offset'],
-    'screenSizeCm': config['screen_size_cm'],
-    'recordMode': record_mode,
-    'checkSettings': check,
-    'gameSettings': game,
-  })
+  if isinstance(config_updater, dict):
+    if config is not None:
+      config = deep_update(config, config_updater)
+    elif update_none:
+      config = config_updater
 
-async def handle_message(message, websocket, camera_status, **kwargs):
-  logging.debug(f'websocket server received message - {message}')
+  return config
 
-  should_exit = False
-  message_obj = json.loads(message)
+def create_server_consumer(config_path, open_event, kill_event,
+                           next_ready, next_valid, value_bank, value_lock,
+                           record_info, config_updater: dict = None):
+  '''Run camera process and send the estimated PoG to the client.'''
 
-  # On receving "open-cam", start the camera process
-  if message_obj['opcode'] == 'open-cam':
-    camera_status['camera-open'] = mp.Event()
-    camera_status['camera-kill'] = mp.Event()
-    camera_status['next-ready'] = mp.Event()
-    camera_status['next-valid'] = mp.Value('b', False)
-    camera_status['value-bank'] = mp.Array('d', (0.0, 0.0, 0.0))
-    camera_status['value-lock'] = mp.Lock()
-    camera_status['save-queue'] = mp.Queue()
+  def sync_result(result, frame_count):
+    with value_lock:
+      if result['success'] and result['pog_scn'] is not None:
+        value_bank[0] = result['pog_cam'][0]  # Gaze: x
+        value_bank[1] = result['pog_cam'][1]  # Gaze: y
+        next_valid.value = True     # PoG: valid
+      else:
+        next_valid.value = False
 
-    # Optional folder name of the next record, sent by the client
-    record_name = message_obj.get('record_name', '')
+      value_bank[2] = frame_count   # Fid: frame
+    next_ready.set()
 
-    camera_status['camera-proc'] = mp.Process(
-      target=camera_process, args=(
-        kwargs['config'],
-        kwargs['record_path'],
-        record_name,
-        camera_status['save-queue'],
-        camera_status['camera-open'],
-        camera_status['camera-kill'],
-        camera_status['value-bank'],
-        camera_status['value-lock'],
-        camera_status['next-ready'],
-        camera_status['next-valid'],
-      ),
-    )
+  config = load_config(config_path, config_updater)
 
-    camera_status['camera-proc'].start()
-    camera_status['camera-open'].wait()
+  capture_builder = VideoCaptureBuilder(**config['capture'])
+  consumer = ServerFrameConsumer(open_event, kill_event, sync_result, record_info)
 
-    # Send "camera-on" to notify the client
-    await websocket_send_json(websocket, { 'status': 'camera-on' })
+  inference_cond = config['server']['record']['inference']
+  if record_info['enable'] and not inference_cond:
+    def pipeline(src_image):
+      return dict(success=False)
 
-  # On receiving "kill-cam", terminate the camera process
-  # On receiving "kill-server", terminate the server
-  if message_obj['opcode'] in ['kill-cam', 'kill-server']:
-    if camera_status.get('camera-proc', None):
-      camera_status['camera-kill'].set()
-      camera_status['camera-proc'].join()
+    with consumer:
+      capture_handler = CaptureHandler(capture_builder, consumer)
+      capture_handler.main_loop(pipeline=pipeline)
 
-    camera_status.clear()
+  else:
+    model = load_model(config_path, **config['checkpoint'])
 
-    if message_obj['opcode'] == 'kill-cam':
-      if not message_obj['hard']:
-        # Send "camera-off" to notify the client
-        await websocket_send_json(websocket, { 'status': 'camera-off' })
+    transforms = Transforms(**config['transform'])
+    alignment = FaceAlignment(**config['alignment'])
+    inferencer = Inferencer(**config['inference'])
 
-    if message_obj['opcode'] == 'kill-server':
-      kwargs['stop_future'].set_result(True)
+    def pipeline(src_image):
+      image = transforms.transform(src_image)
+      return inferencer.run(model, alignment, image)
 
-    should_exit = True
+    with alignment, consumer:
+      capture_handler = CaptureHandler(capture_builder, consumer)
+      capture_handler.main_loop(pipeline=pipeline)
 
-  # On receiving "save-gaze", enqueue label in the save task queue
-  if message_obj['opcode'] == 'save-gaze':
-    camera_status['save-queue'].put((
-      message_obj['tid'],
-      message_obj['gaze_x'],
-      message_obj['gaze_y'],
-      message_obj['label_x'],
-      message_obj['label_y'],
-    ))
+def clean_up_context(context):
+  if context.get('camera_proc', None):
+    context['camera_kill'].set()
+    context['camera_proc'].join()
+  context.clear()
 
-  return should_exit
+async def websocket_send_json(websocket, message_obj):
+  '''Send a JSON object over websocket.'''
+  await websocket.send(json.dumps(message_obj))
 
-async def broadcast_gaze(websocket, camera_status):
-  if camera_status['next-ready'].is_set():
-    with camera_status['value-lock']:
-      # Sync value and status from the camera process
-      gaze_x, gaze_y, tid = camera_status['value-bank'][:]
-      next_valid = camera_status['next-valid'].value
-    camera_status['next-ready'].clear()
+async def send_server_hello(websocket, config, record_path):
+  message_obj = dict(status='server_on')
 
-    message_obj = {'status': 'next-ready', 'valid': next_valid, 'tid': tid}
+  message_obj['topleft_offset'] = config['inference']['topleft_offset']
+  message_obj['screen_size_cm'] = config['inference']['screen_size_cm']
+
+  message_obj['record_mode'] = record_path != ''
+
+  def game_settings(config):
+    settings = copy.deepcopy(config['game'])
+    if settings['check']['camera']:
+      settings['check']['src_res'] = config['capture']['resolution']
+      settings['check']['tgt_res'] = config['transform']['rescale']['tgt_res']
+    return settings
+
+  message_obj['game_settings'] = game_settings(config)
+
+  await websocket_send_json(websocket, message_obj)
+
+async def send_gaze_predict(websocket, context):
+  if context.get('camera_proc', None) and context['next_ready'].is_set():
+    with context['value_lock']:
+      # Sync value and status from the server consumer
+      gx, gy, fid = context['value_bank'][:]
+      next_valid = context['next_valid'].value
+    context['next_ready'].clear()
+
+    message_obj = dict(status='next_ready', valid=next_valid, fid=fid)
     if next_valid:
-      message_obj.update({'gaze_x': gaze_x, 'gaze_y': gaze_y})
+      message_obj.update(dict(gx=gx, gy=gy))
 
-    # Send "next-ready" to notify the client
     await websocket_send_json(websocket, message_obj)
 
-async def server_process(websocket, stop_future, config_path, record_mode, record_path):
-  logging.info('websocket server started, listening for requests')
-  logging.info(f'loading estimator configuration from {config_path}')
-  if record_mode:
-    logging.info(f'recording mode on, save recordings to {record_path}')
-  record_path = osp.abspath(record_path) if record_mode else ''
+async def recv_client_message(websocket):
+  exit_cond = False
 
-  # Load configuration for the PoG estimator
-  config = load_toml_secure(config_path)
-  config['__config_path'] = config_path
+  try:  # Wait for the message until a timeout occurs
+    message = await asyncio.wait_for(websocket.recv(), timeout=0.01)
+  except websockets.ConnectionClosed:
+    exit_cond = True
+  except asyncio.TimeoutError:
+    message = None
 
-  # Send "server-on" packet to notify the client
-  await server_hello(
-    websocket, config, record_mode,
-    config.pop('check'),
-    config.pop('game'),
+  return exit_cond, message
+
+async def on_open_camera(message_obj, websocket, context, config_path, record_path):
+  context['camera_open'] = mp.Event()
+  context['camera_kill'] = mp.Event()
+
+  context['next_ready'] = mp.Event()
+  context['next_valid'] = mp.Value('b', False)
+  context['value_bank'] = mp.Array('d', (0.0, 0.0, 0.0))
+  context['value_lock'] = mp.Lock()
+
+  if record_path != '':
+    context['save_queue'] = mp.Queue()
+    record_info = dict(
+      enable=True, cache_size=600,
+      root=record_path,
+      name=message_obj.get('record_name', ''),
+      save_queue=context['save_queue'],
+    )
+  else:
+    record_info = dict(enable=False)
+
+  context['camera_proc'] = mp.Process(
+    target=create_server_consumer, kwargs=dict(
+      config_path=config_path,
+      open_event=context['camera_open'],
+      kill_event=context['camera_kill'],
+      next_ready=context['next_ready'],
+      next_valid=context['next_valid'],
+      value_bank=context['value_bank'],
+      value_lock=context['value_lock'],
+      record_info=record_info,
+    ),
   )
 
-  camera_status = {}
-  server_alive = True
+  context['camera_proc'].start()
+  context['camera_open'].wait()
 
+  await websocket_send_json(websocket, { 'status': 'camera_on' })
+
+  return False
+
+async def on_kill_camera(message_obj, websocket, context):
+  clean_up_context(context)
+
+  if not message_obj['hard']:
+    await websocket_send_json(websocket, { 'status': 'camera_off' })
+
+  return True
+
+async def on_kill_server(message_obj, websocket, context, stop_future):
+  clean_up_context(context)
+
+  stop_future.set_result(True)
+
+  return True
+
+async def on_save_result(message_obj, websocket, context, record_path):
+  if record_path != '':
+    # Item: frame id, gaze x, gaze y, label x, label y
+    context['save_queue'].put(message_obj['result'])
+
+  return False
+
+async def websocket_handler(websocket, stop_future, config_path, config_updater: dict = None):
+  '''Handler for incoming websocket requests, sent by main game loop.'''
+
+  server_alive, exit_cond_1, exit_cond_2 = True, False, False
+
+  config = load_config(config_path, config_updater)
+
+  record_path = config['server']['record']['path']
+  await send_server_hello(websocket, config, record_path)
+
+  handler_infos = dict(
+    open_camera=dict(fn=on_open_camera, kw=dict(
+      config_path=config_path,
+      record_path=record_path,
+    )),
+    kill_camera=dict(fn=on_kill_camera, kw=dict()),
+    kill_server=dict(fn=on_kill_server, kw=dict(stop_future=stop_future)),
+    save_result=dict(fn=on_save_result, kw=dict(record_path=record_path)),
+  )
+
+  context = dict()  # Context shared by handler functions
   while server_alive:
-    try:  # Wait for the message until a timeout occurs
-      message = await asyncio.wait_for(websocket.recv(), timeout=0.01)
-    except websockets.ConnectionClosed:
-      break # Close server upon closed client
-    except asyncio.TimeoutError:
-      message = None
+    await send_gaze_predict(websocket, context)
+
+    exit_cond_1, message = await recv_client_message(websocket)
 
     if message is not None:
-      should_exit = await handle_message(
-        message, websocket, camera_status,
-        config=config,
-        record_path=record_path,
-        stop_future=stop_future,
-      )
-      server_alive = not should_exit
+      message_obj = json.loads(message) # Deserialize
+      info = handler_infos[message_obj['opcode']]
+      args = (message_obj, websocket, context)
+      exit_cond_2 = await info['fn'](*args, **info['kw'])
 
-    if camera_status.get('camera-proc', None):
-      await broadcast_gaze(websocket, camera_status)
+    server_alive = not exit_cond_1 and not exit_cond_2
 
-  logging.info('websocket server closed, waiting for next new request')
+  clean_up_context(context)
 
 
 
-async def websocket_server(ws_handler, host, port):
-  '''A general-purpose websocket server that runs forever.'''
+def run_http_server(httpd):
+  '''Http server thread that runs the preconfigured http server.'''
 
-  loop = asyncio.get_running_loop()
-  stop = loop.create_future()
+  with httpd:
+    try:  # Serve incoming requests
+      httpd.serve_forever()
+    except KeyboardInterrupt:
+      pass  # Exit on received Ctrl-C
+    finally:
+      httpd.server_close()
 
-  ws_handler = functools.partial(ws_handler, stop_future=stop)
-
-  async with websockets.serve(ws_handler, host, port):
-    await stop  # Run until stop future is resolved
-
-
-
-def main_procedure_server(cmdargs: argparse.Namespace):
-  '''Start a camera process and a server process, run until interrupted.'''
-
-  logging.info('starting the websocket server to listen for client requests')
-
-  ws_handler = functools.partial(
-    server_process,
-    config_path=cmdargs.config,
-    record_mode=cmdargs.record_mode,
-    record_path=cmdargs.record_path,
-  )
+def run_websocket_server(ws_handler, httpd, host, port):
+  '''Websocket server thread that runs the camera process on the backend.'''
 
   try:  # Run websocket server until gracefully terminated
-    asyncio.run(websocket_server(ws_handler, cmdargs.host, cmdargs.port))
+    asyncio.run(websocket_server(ws_handler, host, port))
   except KeyboardInterrupt:
     pass  # Ignore traceback if no websocket handler is running
 
-  logging.info('websocket finished execution, now exiting')
+  httpd.shutdown()
 
-def main_procedure_preview(cmdargs: argparse.Namespace):
+
+
+def entry_server_mode(config_path, config_updater: dict = None):
+  '''Serve the eye shooting game, until interrupted or stopped.'''
+
+  content_root = osp.join(osp.dirname(osp.dirname(__file__)), 'sketch')
+
+  server_config = load_config(config_path, config_updater)['server']
+  httpd = http_server(directory=content_root, **server_config['http'])
+
+  http_thread = threading.Thread(target=run_http_server, args=(httpd, ))
+  http_thread.start()
+
+  game_url = 'http://{host}:{port}/demo.html'.format(**server_config['http'])
+  logging.info(f'serving eye shooting game on {game_url}')
+
+  ws_handler = functools.partial(websocket_handler, config_path=config_path)
+  run_websocket_server(ws_handler, httpd, **server_config['websocket'])
+
+  http_thread.join()
+
+def entry_preview_mode(config_path):
   '''Run camera process and preview the estimated PoG on the screen.'''
 
-  logging.info('gaze point estimator preview will start in a few seconds')
+  config = load_config(config_path)
 
-  # Load configuration for the PoG estimator
-  config_path = osp.abspath(cmdargs.config)
-  config = load_toml_secure(config_path)
-  # Load estimator checkpoint from file system
-  model = load_model(config_path, config.pop('checkpoint'))
-  # Drop extra kwargs used in server mode
-  config.pop('game_settings', None)
-  # Handle control to camera preview
-  camera_handler(model, **config)
+  capture_builder = VideoCaptureBuilder(**config['capture'])
+  consumer = PreviewFrameConsumer(**config['preview'])
 
-  logging.info('gaze point estimator preview finished, now exiting')
+  model = load_model(config_path, **config['checkpoint'])
+
+  transforms = Transforms(**config['transform'])
+  alignment = FaceAlignment(**config['alignment'])
+  inferencer = Inferencer(**config['inference'])
+
+  def pipeline(src_image):
+    image = transforms.transform(src_image)
+    result = inferencer.run(model, alignment, image)
+    return image, result
+
+  with alignment, consumer:
+    capture_handler = CaptureHandler(capture_builder, consumer)
+    capture_handler.main_loop(pipeline=pipeline)
+
+MAIN_ENTRIES = dict(preview=entry_preview_mode, server=entry_server_mode)
+
+
+
+def configure_logging(level=logging.INFO, force=False):
+  logging.basicConfig(
+    level=level, force=force,
+    format='[ %(asctime)s ] process %(process)d - %(levelname)s: %(message)s',
+    datefmt='%m-%d %H:%M:%S',
+  )
 
 def main_procedure(cmdargs: argparse.Namespace):
-  if cmdargs.mode == 'server':
-    main_procedure_server(cmdargs)
-
-  if cmdargs.mode == 'preview':
-    main_procedure_preview(cmdargs)
+  entry = MAIN_ENTRIES.get(cmdargs.mode, None)
+  config_path = osp.abspath(cmdargs.config)
+  if entry is not None: entry(config_path)
 
 
 
 if __name__ == '__main__':
-  configure_logging(logging.INFO, force=True)
-
   parser = argparse.ArgumentParser(description='Predict gaze point from trained model.')
 
   parser.add_argument('--config', type=str, default='estimator.toml',
@@ -395,14 +420,5 @@ if __name__ == '__main__':
   parser.add_argument('--mode', type=str, default='server', choices=['server', 'preview'],
                       help='The mode to run the PoG estimator. Default is server.')
 
-  parser.add_argument('--host', type=str, default='localhost',
-                      help='The host address to bind the server to. Default is localhost.')
-  parser.add_argument('--port', type=int, default=4200,
-                      help='The port number to bind the server to. Default is 4200.')
-
-  parser.add_argument('--record-mode', default=False, action='store_true',
-                      help='Enable recording mode. Default is False.')
-  parser.add_argument('--record-path', type=str, default='demo-capture',
-                      help='The path to store the recordings. Default is "demo-capture".')
-
+  configure_logging(logging.INFO, force=True)
   main_procedure(parser.parse_args())
