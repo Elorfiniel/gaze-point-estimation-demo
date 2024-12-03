@@ -26,12 +26,15 @@ datas = [
 ]
 
 # Copy binary protobuf file required by MediaPipe
-modules = ['face_detection', 'face_landmark', 'iris_landmark']
-for module in modules:
-    root = join(purelib_path, 'mediapipe', 'modules', module)
-    for file in glob(join(root, '*.binarypb')) + glob(join(root, '*.tflite')):
-        datas.append((file, dirname(relpath(file, purelib_path))))
-
+try:
+    import mediapipe as mp
+    modules = ['face_detection', 'face_landmark', 'iris_landmark']
+    for module in modules:
+        root = join(purelib_path, 'mediapipe', 'modules', module)
+        for file in glob(join(root, '*.binarypb')) + glob(join(root, '*.tflite')):
+            datas.append((file, dirname(relpath(file, purelib_path))))
+except ImportError:
+    pass
 
 a = Analysis(
     ['bootstrap.py'],
