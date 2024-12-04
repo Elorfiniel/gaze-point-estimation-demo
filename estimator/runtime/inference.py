@@ -1,5 +1,5 @@
-from runtime.one_euro import OneEuroFilter
-from runtime.pipeline import (
+from .one_euro import OneEuroFilter
+from .pipeline import (
   prepare_model_input,
   rotate_vector_a,
   do_model_inference,

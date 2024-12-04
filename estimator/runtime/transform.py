@@ -1,4 +1,4 @@
-from runtime.miscellaneous import rescale_frame
+from .miscellaneous import rescale_frame
 
 
 class Transforms:
