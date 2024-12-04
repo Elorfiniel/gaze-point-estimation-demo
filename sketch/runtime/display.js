@@ -1,48 +1,67 @@
 class DisplayConvert {
-  constructor() {
-    this.actualSize = undefined
-    this.screenSize = undefined
-    this.screenOrigin = undefined
-    this.viewportOffset = undefined
-  }
+  setScreenSize(sh, sw) {
+    this.screenSize = [sh, sw]
 
-  setScreenOrigin(cx, cy) {
-    this.screenOrigin = [cx, cy]
+    const xz = sw / screen.width
+    const yz = sh / screen.height
+    this.zoom = 0.5 * (xz + yz)
   }
 
   setActualSize(ah, aw) {
     this.actualSize = [ah, aw]
   }
 
-  setScreenSize(wh, ww) {
-    this.screenSize = [wh, ww]
+  setscreenOrig(cx, cy) {
+    this.screenOrig = [cx, cy]
   }
 
-  setViewportOffset(vsx, vsy) {
-    this.viewportOffset = [vsx, vsy]
+  setClientOrig(msx, msy, mcx, mcy) {
+    const pmcx = mcx * window.devicePixelRatio
+    const pmcy = mcy * window.devicePixelRatio
+
+    const clix = msx * this.zoom - pmcx
+    const cliy = msy * this.zoom - pmcy
+    this.clientOrig = [clix, cliy]
+
+    this.clientShift = [screenLeft, screenTop]
+  }
+
+  canvasScale(canvas, w, h) {
+    const rect = canvas.getBoundingClientRect()
+
+    const csw = canvas.scrollWidth / w || 1
+    const csh = canvas.scrollHeight / h || 1
+
+    return [csw, csh, rect.left, rect.top]
   }
 
   actual2screen(ax, ay) {
-    const [cx, cy] = this.screenOrigin
+    // Return point in screen coordinates, in physical pixels
+
+    const [cx, cy] = this.screenOrig
     const [ah, aw] = this.actualSize
-    const [wh, ww] = this.screenSize
+
+    const [sh, sw] = this.screenSize
 
     const tx = ax - cx
     const ty = -ay + cy
 
-    const sx = ww * tx / aw
-    const sy = wh * ty / ah
+    const sx = sw * tx / aw
+    const sy = sh * ty / ah
 
     return [sx, sy]
   }
 
   screen2actual(sx, sy) {
-    const [cx, cy] = this.screenOrigin
-    const [ah, aw] = this.actualSize
-    const [wh, ww] = this.screenSize
+    // Return point in camera coordinates, in centimeters
 
-    const tx = aw * sx / ww
-    const ty = ah * sy / wh
+    const [cx, cy] = this.screenOrig
+    const [ah, aw] = this.actualSize
+
+    const [sh, sw] = this.screenSize
+
+    const tx = aw * sx / sw
+    const ty = ah * sy / sh
 
     const ax = tx + cx
     const ay = -ty + cy
@@ -50,20 +69,42 @@ class DisplayConvert {
     return [ax, ay]
   }
 
-  screen2canvas(sx, sy, sxu, syu) {
-    const [vsx, vsy] = this.viewportOffset
+  screen2canvas(sx, sy, canvas, w, h) {
+    // Return point in canvas coordinates, in canvas pixels
 
-    const cx = sx - vsx - sxu
-    const cy = sy - vsy - syu
+    const [csw, csh, csl, cst] = this.canvasScale(canvas, w, h)
+
+    const [clix, cliy] = this.clientOrig
+
+    const [sxu, syu] = this.clientShift
+    const psxu = (screenLeft - sxu) * this.zoom
+    const psyu = (screenTop - syu) * this.zoom
+
+    const vx = (sx - clix - psxu) / window.devicePixelRatio
+    const vy = (sy - cliy - psyu) / window.devicePixelRatio
+
+    const cx = (vx - csl) / csw
+    const cy = (vy - cst) / csh
 
     return [cx, cy]
   }
 
-  canvas2screen(cx, cy, sxu, syu) {
-    const [vsx, vsy] = this.viewportOffset
+  canvas2screen(cx, cy, canvas, w, h) {
+    // Return point in screen coordinates, in physical pixels
 
-    const sx = cx + vsx + sxu
-    const sy = cy + vsy + syu
+    const [csw, csh, csl, cst] = this.canvasScale(canvas, w, h)
+
+    const [clix, cliy] = this.clientOrig
+
+    const [sxu, syu] = this.clientShift
+    const psxu = (screenLeft - sxu) * this.zoom
+    const psyu = (screenTop - syu) * this.zoom
+
+    const vx = cx * csw + csl
+    const vy = cy * csh + cst
+
+    const sx = vx * window.devicePixelRatio + clix + psxu
+    const sy = vy * window.devicePixelRatio + cliy + psyu
 
     return [sx, sy]
   }

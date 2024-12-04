@@ -71,6 +71,10 @@ class EsConfigFns:
     return es_config['inference']['topleft_offset']
 
   @staticmethod
+  def screen_size_px(es_config: EsConfig) -> list:
+    return es_config['inference']['screen_size_px']
+
+  @staticmethod
   def screen_size_cm(es_config: EsConfig) -> list:
     return es_config['inference']['screen_size_cm']
 

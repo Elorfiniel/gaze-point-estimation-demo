@@ -118,9 +118,7 @@ function createViewsForIntro(ctx) {
       text(buttonText, 684.0 + uiShiftX, 611.8 + uiShiftY)
 
       if (onHover && mouseIsPressed) {
-        c.values.add('init-outer-x', screenLeft)
-        c.values.add('init-outer-y', screenTop)
-        c.display.setViewportOffset(devMouseX - winMouseX, devMouseY - winMouseY)
+        c.display.setClientOrig(devMouseX, devMouseY, winMouseX, winMouseY)
 
         const gameSettings = c.values.get('game-settings')
         const recordMode = c.values.get('record-mode')
@@ -129,6 +127,7 @@ function createViewsForIntro(ctx) {
         const checkPage2 = gameSettings.check['camera']
         const checkPage = checkPage1 || checkPage2
         const nextState = checkPage ? c.states.states.CHECK : c.states.states.ONCAM
+
         c.states.setFutureState(nextState)
       }
     },
@@ -491,11 +490,12 @@ function createViewsForOutro(ctx) {
 function configureSocket(ctx) {
   ctx.socket.setOnMessage((msgObj) => {
     if (msgObj.status == 'server_on') {
-      const [cx, cy] = msgObj['topleft_offset']
-      ctx.display.setScreenOrigin(cx, cy)
+      const [sh, sw] = msgObj['screen_size_px']
+      ctx.display.setScreenSize(sh, sw)
       const [ah, aw] = msgObj['screen_size_cm']
       ctx.display.setActualSize(ah, aw)
-      ctx.display.setScreenSize(screen.height, screen.width)
+      const [cx, cy] = msgObj['topleft_offset']
+      ctx.display.setscreenOrig(cx, cy)
 
       ctx.values.add('record-mode', msgObj['record_mode'])
       ctx.values.add('game-settings', msgObj['game_settings'])
@@ -626,16 +626,14 @@ function drawWhenGame(ctx) {
 
   const gameViews = ctx.values.get('game-views')
   const recordMode = ctx.values.get('record-mode')
-  const gazeInfo = ctx.values.get('gaze')
+  const gaze = ctx.values.get('gaze')
   const nextReady = ctx.values.pop('next-ready')
   const nextValid = ctx.values.get('next-valid')
 
-  const xUpdate = screenLeft - ctx.values.get('init-outer-x')
-  const yUpdate = screenTop - ctx.values.get('init-outer-y')
   if (nextValid == true) {
     // Semicolon is intentional here, otherwise ASI gives unexpected result
-    const [sx, sy] = ctx.display.actual2screen(gazeInfo.gx, gazeInfo.gy);
-    [aimX, aimY] = ctx.display.screen2canvas(sx, sy, xUpdate, yUpdate);
+    const [sx, sy] = ctx.display.actual2screen(gaze.gx, gaze.gy);
+    [aimX, aimY] = ctx.display.screen2canvas(sx, sy, ctx.canvas, width, height);
   }
 
   background(221, 230, 237)
@@ -658,15 +656,15 @@ function drawWhenGame(ctx) {
     const enemy = ctx.game.getAimedEnemy()
 
     if (enemy !== undefined) {
-      const [sx, sy] = ctx.display.canvas2screen(enemy.x, enemy.y, xUpdate, yUpdate)
+      const [sx, sy] = ctx.display.canvas2screen(enemy.x, enemy.y, ctx.canvas, width, height)
       const [ax, ay] = ctx.display.screen2actual(sx, sy)
 
       ctx.socket.sendMessage({
         opcode: 'save_result',
         result: {
-          fid: gazeInfo.fid,
-          gx: nextValid ? gazeInfo.gx : 0,
-          gy: nextValid ? gazeInfo.gy : 0,
+          fid: gaze.fid,
+          gx: nextValid ? gaze.gx : 0,
+          gy: nextValid ? gaze.gy : 0,
           lx: ax, ly: ay,
         },
       })

@@ -172,6 +172,7 @@ async def send_server_hello(websocket, es_config: EsConfig):
   message_obj = dict(status='server_on')
 
   message_obj['topleft_offset'] = EsConfigFns.topleft_offset(es_config)
+  message_obj['screen_size_px'] = EsConfigFns.screen_size_px(es_config)
   message_obj['screen_size_cm'] = EsConfigFns.screen_size_cm(es_config)
   message_obj['record_mode'] = EsConfigFns.record_mode(es_config)
   message_obj['game_settings'] = EsConfigFns.collect_game_settings(es_config)
