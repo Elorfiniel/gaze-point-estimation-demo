@@ -7,129 +7,44 @@ if __name__ == '__main__':
 
 
 from runtime.bundle import is_running_in_bundle, get_bundled_path
+from runtime.es_config import EsConfig, EsConfigFns
 from runtime.server import http_server
 
 from estimator import (
-  load_config, create_server_consumer,
-  clean_up_context, websocket_send_json,
-  send_server_hello, send_gaze_predict, recv_client_message,
-  on_kill_camera, on_kill_server, on_save_result,
+  configure_logging, websocket_handler,
   run_http_server, run_websocket_server,
-  configure_logging,
 )
 
 import argparse
 import functools
-import json
 import logging
-import multiprocessing as mp
 import os.path as osp
 import sys
 import threading
 
 
-
-async def on_open_camera(message_obj, websocket, context, config_path, record_path, device_config):
-  context['camera_open'] = mp.Event()
-  context['camera_kill'] = mp.Event()
-
-  context['next_ready'] = mp.Event()
-  context['next_valid'] = mp.Value('b', False)
-  context['value_bank'] = mp.Array('d', (0.0, 0.0, 0.0))
-  context['value_lock'] = mp.Lock()
-
-  if record_path != '':
-    context['save_queue'] = mp.Queue()
-    record_info = dict(
-      enable=True, cache_size=600,
-      root=record_path,
-      name=message_obj.get('record_name', ''),
-      save_queue=context['save_queue'],
-    )
-  else:
-    record_info = dict(enable=False)
-
-  context['camera_proc'] = mp.Process(
-    target=create_server_consumer, kwargs=dict(
-      config_path=config_path,
-      open_event=context['camera_open'],
-      kill_event=context['camera_kill'],
-      next_ready=context['next_ready'],
-      next_valid=context['next_valid'],
-      value_bank=context['value_bank'],
-      value_lock=context['value_lock'],
-      record_info=record_info,
-      config_updater=device_config,
-    ),
-  )
-
-  context['camera_proc'].start()
-  context['camera_open'].wait()
-
-  await websocket_send_json(websocket, { 'status': 'camera_on' })
-
-  return False
-
-async def websocket_handler(websocket, stop_future, device_config):
-  '''Handler for incoming websocket requests, sent by main game loop.'''
-
-  server_alive, exit_cond_1, exit_cond_2 = True, False, False
-
-  config_path = get_bundled_path(osp.join('_app_data', 'estimator.toml'))
-  config = load_config(config_path, device_config)
-
-  record_path = config['server']['record']['path']
-  await send_server_hello(websocket, config, record_path)
-
-  handler_infos = dict(
-    open_camera=dict(fn=on_open_camera, kw=dict(
-      config_path=config_path,
-      record_path=record_path,
-      device_config=device_config,
-    )),
-    kill_camera=dict(fn=on_kill_camera, kw=dict()),
-    kill_server=dict(fn=on_kill_server, kw=dict(stop_future=stop_future)),
-    save_result=dict(fn=on_save_result, kw=dict(record_path=record_path)),
-  )
-
-  context = dict()  # Context shared by handler functions
-  while server_alive:
-    await send_gaze_predict(websocket, context)
-
-    exit_cond_1, message = await recv_client_message(websocket)
-
-    if message is not None:
-      message_obj = json.loads(message) # Deserialize
-      info = handler_infos[message_obj['opcode']]
-      args = (message_obj, websocket, context)
-      exit_cond_2 = await info['fn'](*args, **info['kw'])
-
-    server_alive = not exit_cond_1 and not exit_cond_2
-
-  clean_up_context(context)
-
-
-
-def entry_server_mode(device_config_path):
+def entry_server_mode(config_updater_path):
   '''Serve the eye shooting game, until interrupted or stopped.'''
 
   content_root = get_bundled_path(osp.join('_app_data', 'sketch'))
 
-  device_config = load_config(device_config_path)
-  server_config = load_config(
-    config_path=get_bundled_path(osp.join('_app_data', 'estimator.toml')),
-    config_updater=device_config,
-  )['server']
-  httpd = http_server(directory=content_root, **server_config['http'])
+  config_path = get_bundled_path(osp.join('_app_data', 'estimator.toml'))
+  config_updater = EsConfig.from_toml(config_updater_path).to_dict()
+  es_config = EsConfig.from_toml(config_path, config_updater)
+  EsConfigFns.set_config_path(es_config, config_path)
 
+  http_server_addr = EsConfigFns.http_server_addr(es_config)
+  ws_server_addr = EsConfigFns.ws_server_addr(es_config)
+
+  httpd = http_server(directory=content_root, **http_server_addr)
   http_thread = threading.Thread(target=run_http_server, args=(httpd, ))
   http_thread.start()
 
-  game_url = 'http://{host}:{port}/demo.html'.format(**server_config['http'])
+  game_url = 'http://{host}:{port}/demo.html'.format(**http_server_addr)
   logging.info(f'serving eye shooting game on {game_url}')
 
-  ws_handler = functools.partial(websocket_handler, device_config=device_config)
-  run_websocket_server(ws_handler, httpd, **server_config['websocket'])
+  ws_handler = functools.partial(websocket_handler, es_config=es_config)
+  run_websocket_server(ws_handler, httpd, **ws_server_addr)
 
   http_thread.join()
 
@@ -140,8 +55,8 @@ def main_procedure(cmdargs: argparse.Namespace):
     logging.error('this script should only be run from the bundled app')
     sys.exit(1) # Exit the execution
 
-  device_config_path = osp.abspath(cmdargs.config)
-  entry_server_mode(device_config_path)
+  config_updater_path = osp.abspath(cmdargs.config)
+  entry_server_mode(config_updater_path)
 
 
 

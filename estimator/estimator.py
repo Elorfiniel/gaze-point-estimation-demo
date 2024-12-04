@@ -1,7 +1,7 @@
 from runtime.captures import VideoCaptureBuilder, CaptureHandler
+from runtime.es_config import EsConfig, EsConfigFns
 from runtime.facealign import FaceAlignment
 from runtime.inference import Inferencer
-from runtime.miscellaneous import deep_update, load_toml_secure
 from runtime.pipeline import load_model
 from runtime.preview import *
 from runtime.server import http_server, websocket_server
@@ -10,7 +10,6 @@ from runtime.transform import Transforms
 
 import argparse
 import asyncio
-import copy
 import cv2
 import functools
 import json
@@ -116,21 +115,8 @@ class ServerFrameConsumer:
       pass  # Nothing to save
 
 
-
-def load_config(config_path, config_updater: dict = None, update_none: bool = False):
-  config = load_toml_secure(config_path)
-
-  if isinstance(config_updater, dict):
-    if config is not None:
-      config = deep_update(config, config_updater)
-    elif update_none:
-      config = config_updater
-
-  return config
-
-def create_server_consumer(config_path, open_event, kill_event,
-                           next_ready, next_valid, value_bank, value_lock,
-                           record_info, config_updater: dict = None):
+def create_server_consumer(es_config, record_info, open_event, kill_event,
+                           next_ready, next_valid, value_bank, value_lock):
   '''Run camera process and send the estimated PoG to the client.'''
 
   def sync_result(result, frame_count):
@@ -145,13 +131,10 @@ def create_server_consumer(config_path, open_event, kill_event,
       value_bank[2] = frame_count   # Fid: frame
     next_ready.set()
 
-  config = load_config(config_path, config_updater)
-
-  capture_builder = VideoCaptureBuilder(**config['capture'])
+  capture_builder = VideoCaptureBuilder(**EsConfigFns.named_dict(es_config, 'capture'))
   consumer = ServerFrameConsumer(open_event, kill_event, sync_result, record_info)
 
-  inference_cond = config['server']['record']['inference']
-  if record_info['enable'] and not inference_cond:
+  if EsConfigFns.record_without_inference(es_config):
     def pipeline(src_image):
       return dict(success=False)
 
@@ -160,11 +143,12 @@ def create_server_consumer(config_path, open_event, kill_event,
       capture_handler.main_loop(pipeline=pipeline)
 
   else:
-    model = load_model(config_path, **config['checkpoint'])
+    config_path = EsConfigFns.get_config_path(es_config)
+    model = load_model(config_path, **EsConfigFns.named_dict(es_config, 'checkpoint'))
 
-    transforms = Transforms(**config['transform'])
-    alignment = FaceAlignment(**config['alignment'])
-    inferencer = Inferencer(**config['inference'])
+    transforms = Transforms(**EsConfigFns.named_dict(es_config, 'transform'))
+    alignment = FaceAlignment(**EsConfigFns.named_dict(es_config, 'alignment'))
+    inferencer = Inferencer(**EsConfigFns.named_dict(es_config, 'inference'))
 
     def pipeline(src_image):
       image = transforms.transform(src_image)
@@ -184,22 +168,13 @@ async def websocket_send_json(websocket, message_obj):
   '''Send a JSON object over websocket.'''
   await websocket.send(json.dumps(message_obj))
 
-async def send_server_hello(websocket, config, record_path):
+async def send_server_hello(websocket, es_config: EsConfig):
   message_obj = dict(status='server_on')
 
-  message_obj['topleft_offset'] = config['inference']['topleft_offset']
-  message_obj['screen_size_cm'] = config['inference']['screen_size_cm']
-
-  message_obj['record_mode'] = record_path != ''
-
-  def game_settings(config):
-    settings = copy.deepcopy(config['game'])
-    if settings['check']['camera']:
-      settings['check']['src_res'] = config['capture']['resolution']
-      settings['check']['tgt_res'] = config['transform']['rescale']['tgt_res']
-    return settings
-
-  message_obj['game_settings'] = game_settings(config)
+  message_obj['topleft_offset'] = EsConfigFns.topleft_offset(es_config)
+  message_obj['screen_size_cm'] = EsConfigFns.screen_size_cm(es_config)
+  message_obj['record_mode'] = EsConfigFns.record_mode(es_config)
+  message_obj['game_settings'] = EsConfigFns.collect_game_settings(es_config)
 
   await websocket_send_json(websocket, message_obj)
 
@@ -229,7 +204,7 @@ async def recv_client_message(websocket):
 
   return exit_cond, message
 
-async def on_open_camera(message_obj, websocket, context, config_path, record_path):
+async def on_open_camera(message_obj, websocket, context, es_config):
   context['camera_open'] = mp.Event()
   context['camera_kill'] = mp.Event()
 
@@ -238,11 +213,11 @@ async def on_open_camera(message_obj, websocket, context, config_path, record_pa
   context['value_bank'] = mp.Array('d', (0.0, 0.0, 0.0))
   context['value_lock'] = mp.Lock()
 
-  if record_path != '':
+  if EsConfigFns.record_mode(es_config):
     context['save_queue'] = mp.Queue()
     record_info = dict(
       enable=True, cache_size=600,
-      root=record_path,
+      root=EsConfigFns.record_path(es_config),
       name=message_obj.get('record_name', ''),
       save_queue=context['save_queue'],
     )
@@ -250,15 +225,15 @@ async def on_open_camera(message_obj, websocket, context, config_path, record_pa
     record_info = dict(enable=False)
 
   context['camera_proc'] = mp.Process(
-    target=create_server_consumer, kwargs=dict(
-      config_path=config_path,
+    target=create_server_consumer,
+    args=(es_config, record_info),
+    kwargs=dict(
       open_event=context['camera_open'],
       kill_event=context['camera_kill'],
       next_ready=context['next_ready'],
       next_valid=context['next_valid'],
       value_bank=context['value_bank'],
       value_lock=context['value_lock'],
-      record_info=record_info,
     ),
   )
 
@@ -284,31 +259,25 @@ async def on_kill_server(message_obj, websocket, context, stop_future):
 
   return True
 
-async def on_save_result(message_obj, websocket, context, record_path):
-  if record_path != '':
+async def on_save_result(message_obj, websocket, context, es_config):
+  if EsConfigFns.record_mode(es_config):
     # Item: frame id, gaze x, gaze y, label x, label y
     context['save_queue'].put(message_obj['result'])
 
   return False
 
-async def websocket_handler(websocket, stop_future, config_path, config_updater: dict = None):
+async def websocket_handler(websocket, stop_future, es_config: EsConfig):
   '''Handler for incoming websocket requests, sent by main game loop.'''
 
   server_alive, exit_cond_1, exit_cond_2 = True, False, False
 
-  config = load_config(config_path, config_updater)
-
-  record_path = config['server']['record']['path']
-  await send_server_hello(websocket, config, record_path)
+  await send_server_hello(websocket, es_config)
 
   handler_infos = dict(
-    open_camera=dict(fn=on_open_camera, kw=dict(
-      config_path=config_path,
-      record_path=record_path,
-    )),
+    open_camera=dict(fn=on_open_camera, kw=dict(es_config=es_config)),
     kill_camera=dict(fn=on_kill_camera, kw=dict()),
     kill_server=dict(fn=on_kill_server, kw=dict(stop_future=stop_future)),
-    save_result=dict(fn=on_save_result, kw=dict(record_path=record_path)),
+    save_result=dict(fn=on_save_result, kw=dict(es_config=es_config)),
   )
 
   context = dict()  # Context shared by handler functions
@@ -352,38 +321,42 @@ def run_websocket_server(ws_handler, httpd, host, port):
 
 
 
-def entry_server_mode(config_path, config_updater: dict = None):
+def entry_server_mode(config_path):
   '''Serve the eye shooting game, until interrupted or stopped.'''
 
   content_root = osp.join(osp.dirname(osp.dirname(__file__)), 'sketch')
 
-  server_config = load_config(config_path, config_updater)['server']
-  httpd = http_server(directory=content_root, **server_config['http'])
+  es_config = EsConfig.from_toml(config_path)
+  EsConfigFns.set_config_path(es_config, config_path)
 
+  http_server_addr = EsConfigFns.http_server_addr(es_config)
+  ws_server_addr = EsConfigFns.ws_server_addr(es_config)
+
+  httpd = http_server(directory=content_root, **http_server_addr)
   http_thread = threading.Thread(target=run_http_server, args=(httpd, ))
   http_thread.start()
 
-  game_url = 'http://{host}:{port}/demo.html'.format(**server_config['http'])
+  game_url = 'http://{host}:{port}/demo.html'.format(**http_server_addr)
   logging.info(f'serving eye shooting game on {game_url}')
 
-  ws_handler = functools.partial(websocket_handler, config_path=config_path)
-  run_websocket_server(ws_handler, httpd, **server_config['websocket'])
+  ws_handler = functools.partial(websocket_handler, es_config=es_config)
+  run_websocket_server(ws_handler, httpd, **ws_server_addr)
 
   http_thread.join()
 
 def entry_preview_mode(config_path):
   '''Run camera process and preview the estimated PoG on the screen.'''
 
-  config = load_config(config_path)
+  es_config = EsConfig.from_toml(config_path)
 
-  capture_builder = VideoCaptureBuilder(**config['capture'])
-  consumer = PreviewFrameConsumer(**config['preview'])
+  capture_builder = VideoCaptureBuilder(**EsConfigFns.named_dict(es_config, 'capture'))
+  consumer = PreviewFrameConsumer(**EsConfigFns.named_dict(es_config, 'preview'))
 
-  model = load_model(config_path, **config['checkpoint'])
+  model = load_model(config_path, **EsConfigFns.named_dict(es_config, 'checkpoint'))
 
-  transforms = Transforms(**config['transform'])
-  alignment = FaceAlignment(**config['alignment'])
-  inferencer = Inferencer(**config['inference'])
+  transforms = Transforms(**EsConfigFns.named_dict(es_config, 'transform'))
+  alignment = FaceAlignment(**EsConfigFns.named_dict(es_config, 'alignment'))
+  inferencer = Inferencer(**EsConfigFns.named_dict(es_config, 'inference'))
 
   def pipeline(src_image):
     image = transforms.transform(src_image)
