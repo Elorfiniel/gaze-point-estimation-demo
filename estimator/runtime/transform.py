@@ -1,4 +1,4 @@
-from .miscellaneous import rescale_frame
+import cv2
 
 
 class Transforms:
@@ -61,6 +61,48 @@ class Transforms:
     return image
 
 
+def rescale_frame(image, src_res, tgt_res, resize=True):
+  '''Rescale source resolution to target resolution (crop + resize).'''
+
+  assert src_res[0] >= tgt_res[0] and src_res[1] >= tgt_res[1]
+
+  src_asp = src_res[1] / src_res[0]
+  tgt_asp = tgt_res[1] / tgt_res[0]
+
+  if tgt_asp > src_asp:
+    rescale_h = int(src_res[1] / tgt_asp)
+    padding_h = (src_res[0] - rescale_h) // 2
+    image = image[padding_h:-padding_h, :]
+  if tgt_asp < src_asp:
+    rescale_w = int(src_res[0] * tgt_asp)
+    padding_w = (src_res[1] - rescale_w) // 2
+    image = image[:, padding_w:-padding_w]
+
+  if resize:
+    dsize = (tgt_res[1], tgt_res[0])
+    image = cv2.resize(image, dsize, interpolation=cv2.INTER_CUBIC)
+
+  return image
+
+def denoise_frame(image, h_lumin, h_color, psize=7, wsize=21):
+  '''Fast non-local means denoising for colored images.'''
+  return cv2.fastNlMeansDenoisingColored(image, None, h_lumin, h_color, psize, wsize)
+
+def create_clahe(clip_limit=2.0, grid_size=(8, 8)):
+  '''Create CLAHE object for adaptive histogram equalization.'''
+  return cv2.createCLAHE(clip_limit, grid_size)
+
+def equalize_frame(image, clahe, to_lab=cv2.COLOR_BGR2LAB, to_img=cv2.COLOR_LAB2BGR):
+  '''Adaptive histogram equalization for colored images, using CLAHE algorithm.'''
+
+  image = cv2.cvtColor(image, to_lab)
+  L, A, B = cv2.split(image)
+  image = cv2.merge([clahe.apply(L), A, B])
+  image = cv2.cvtColor(image, to_img)
+
+  return image
+
+
 @Transforms.register(name='rescale')
 class Rescale:
   def __init__(self, **transform_config):
@@ -68,3 +110,27 @@ class Rescale:
 
   def transform(self, image):
     return rescale_frame(image, image.shape[:2], **self.transform_config)
+
+@Transforms.register(name='denoise')
+class Denoise:
+  def __init__(self, **transform_config):
+    self.transform_config = transform_config
+
+  def transform(self, image):
+    return denoise_frame(image, **self.transform_config)
+
+@Transforms.register(name='equalize')
+class Equalize:
+  def __init__(self, ccode='bgr', clahe=dict()):
+    assert ccode in ['bgr', 'rgb']
+
+    if ccode == 'rgb':
+      to_lab, to_img = cv2.COLOR_RGB2LAB, cv2.COLOR_LAB2RGB
+    if ccode == 'bgr':
+      to_lab, to_img = cv2.COLOR_BGR2LAB, cv2.COLOR_LAB2BGR
+
+    self.clahe = create_clahe(**clahe)
+    self.cvt = dict(to_lab=to_lab, to_img=to_img)
+
+  def transform(self, image):
+    return equalize_frame(image, self.clahe, **self.cvt)

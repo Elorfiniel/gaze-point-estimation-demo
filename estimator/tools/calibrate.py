@@ -55,7 +55,7 @@ def _prepare_calib_data(model, tmp_folder, recording, labels, image_ext,
 
   # genetate calibration data by inference
   from runtime.facealign import FaceAlignment
-  from runtime.miscellaneous import rescale_frame
+  from runtime.transform import rescale_frame
   from runtime.inference import predict_model_output
 
   alignment = FaceAlignment(static_image_mode=False, min_detection_confidence=0.80)
@@ -267,7 +267,7 @@ def calibration_preview(model, calib_model, camera_id,
                         gx_filt_params=dict(), gy_filt_params=dict()):
   from runtime.facealign import FaceAlignment
   from runtime.inference import gaze_vec_to_screen_xy, predict_model_output
-  from runtime.miscellaneous import rescale_frame
+  from runtime.transform import rescale_frame
   from runtime.pipeline import rotate_vector_a
   # from runtime.one_euro import OneEuroFilter
   from runtime.preview import (

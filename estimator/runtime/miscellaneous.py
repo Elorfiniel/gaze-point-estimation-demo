@@ -1,5 +1,4 @@
 import copy
-import cv2
 import logging
 import json
 import os
@@ -25,29 +24,6 @@ def load_toml_secure(toml_path, allow_pickle=True):
     toml_data = json.loads(json.dumps(toml_data))
 
   return toml_data
-
-def rescale_frame(image, src_res, tgt_res, resize=True):
-  '''Rescale source resolution to target resolution (crop + resize).'''
-
-  assert src_res[0] >= tgt_res[0] and src_res[1] >= tgt_res[1]
-
-  src_asp = src_res[1] / src_res[0]
-  tgt_asp = tgt_res[1] / tgt_res[0]
-
-  if tgt_asp > src_asp:
-    rescale_h = int(src_res[1] / tgt_asp)
-    padding_h = (src_res[0] - rescale_h) // 2
-    image = image[padding_h:-padding_h, :]
-  if tgt_asp < src_asp:
-    rescale_w = int(src_res[0] * tgt_asp)
-    padding_w = (src_res[1] - rescale_w) // 2
-    image = image[:, padding_w:-padding_w]
-
-  if resize:
-    dsize = (tgt_res[1], tgt_res[0])
-    image = cv2.resize(image, dsize, interpolation=cv2.INTER_CUBIC)
-
-  return image
 
 def deep_update(target_dict: dict, new_dict: dict):
   '''Deeply update a dictionary with another dictionary.'''
