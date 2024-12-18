@@ -510,9 +510,11 @@ function configureSocket(ctx) {
     }
 
     if (msgObj.status == 'next_ready') {
-      ctx.values.add('gaze', {gx: msgObj.gx, gy: msgObj.gy, fid: msgObj.fid})
       ctx.values.add('next-ready', true)
-      ctx.values.add('next-valid', msgObj.valid)
+      ctx.values.add('gaze-info', {
+        valid: msgObj.valid, fid: msgObj.fid,
+        gx: msgObj.gx, gy: msgObj.gy,
+      })
     }
   })
 }
@@ -626,13 +628,34 @@ function drawWhenGame(ctx) {
 
   const gameViews = ctx.values.get('game-views')
   const recordMode = ctx.values.get('record-mode')
-  const gaze = ctx.values.get('gaze')
-  const nextReady = ctx.values.pop('next-ready')
-  const nextValid = ctx.values.get('next-valid')
 
-  if (nextValid == true) {
+  /**
+   * The server sends "next-ready" status whenever a new frame is processed
+   *
+   * Note that the server and the client are running on different paces,
+   * (eg. usually the client runs much faster than the server), thus we
+   * need to sync the gaze info between these two components
+   *
+   * How the current design works:
+   *   1. Pop the next-ready flag (once the server processes a new frame)
+   *   2. Get the gaze-info object (the client updates the game system)
+   *
+   * The client's draw loop will be executed several times before the
+   * new "next-ready" status is received, causing a delay on the client
+   * side (because the server is "slow")
+   *
+   * The client simply ignores this delay and treats the extra draw loops
+   * as if they were the same as the previous iteration
+   *
+   * To adjust the different paces so as to somehow keep in pace with the
+   * server, the client maintains several threshold-based aiming strategies
+   */
+  const nextReady = ctx.values.pop('next-ready')
+  const gazeInfo = ctx.values.get('gaze-info', {valid: false, fid: -1})
+
+  if (gazeInfo.valid == true) {
     // Semicolon is intentional here, otherwise ASI gives unexpected result
-    const [sx, sy] = ctx.display.actual2screen(gaze.gx, gaze.gy);
+    const [sx, sy] = ctx.display.actual2screen(gazeInfo.gx, gazeInfo.gy);
     [aimX, aimY] = ctx.display.screen2canvas(sx, sy, ctx.canvas, width, height);
   }
 
@@ -640,41 +663,39 @@ function drawWhenGame(ctx) {
   ctx.space.draw()
   ctx.game.draw()
 
-  if (nextReady == true && recordMode == true) {
+  if (recordMode == true && nextReady == true) {
     /**
      * Send ground truth (PoG) of current frame to the server
-     * Based on the assumption of "fast client, slow server"
      *
-     * Current implementation uses a local websocket connection
-     *
-     * The only overhead that may cause a lag is the time to do
-     * inference (eg. calculate PoG) on the server side
-     *
-     * However, the influence of this lag is very small, due to
-     * the fact that the target (eg. enemy) stays still
+     * The sent packet contains:
+     *   1. fid: frame id, used to fetch corresponding cached image
+     *   2. tid: target id, used to distinguish different targets
+     *   3. lx, ly: the ground truth (PoG) of the current target
      */
     const enemy = ctx.game.getAimedEnemy()
 
     if (enemy !== undefined) {
-      const [sx, sy] = ctx.display.canvas2screen(enemy.x, enemy.y, ctx.canvas, width, height)
-      const [ax, ay] = ctx.display.screen2actual(sx, sy)
+      const msgObj = {opcode: 'save_result', result: {fid: gazeInfo.fid}}
 
-      ctx.socket.sendMessage({
-        opcode: 'save_result',
-        result: {
-          fid: gaze.fid,
-          gx: nextValid ? gaze.gx : 0,
-          gy: nextValid ? gaze.gy : 0,
-          lx: ax, ly: ay,
-        },
-      })
+      const currId = ctx.game.getGameScore()
+      const prevId = ctx.values.get('target-id')
+
+      if (currId != prevId) {
+        const [sx, sy] = ctx.display.canvas2screen(enemy.x, enemy.y, ctx.canvas, width, height)
+        const [ax, ay] = ctx.display.screen2actual(sx, sy)
+        msgObj.result = {fid: gazeInfo.fid, tid: currId, lx: ax, ly: ay}
+
+        ctx.values.add('target-id', currId)
+      }
+
+      ctx.socket.sendMessage(msgObj)
     }
   }
 
   drawViewsForState(ctx, gameViews)
 
   ctx.space.update()
-  ctx.game.update(aimX, aimY, spacebar, nextValid)
+  ctx.game.update(aimX, aimY, spacebar, gazeInfo.valid)
 }
 
 function drawWhenClose(ctx) {
@@ -765,7 +786,13 @@ function actOnSwitchToOncam(ctx) {
 
 function actOnSwitchToGame(ctx) {
   const gameSettings = ctx.values.get('game-settings')
-  ctx.game = new GameSystem(windowWidth / 2, -2, gameSettings.aiming, gameSettings.emitter)
+  ctx.game = new GameSystem(
+    windowWidth / 2, -2,
+    gameSettings.aiming,
+    gameSettings.emitter,
+  )
+
+  ctx.values.add('target-id', -1)
 
   if (gameSettings.countdown['mode'] == 'seconds') {
     ctx.values.add('game-start', new Date())

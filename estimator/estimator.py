@@ -86,6 +86,7 @@ class ServerFrameConsumer:
     if self.record_info['enable']:
       while not self.record_info['save_queue'].empty():
         self.save_frame_in_queue(self.record_info['save_queue'])
+      self.rec_manager.save_label()
 
   def process(self, src_image, result):
     self.sync_result(result, self.frame_count)
@@ -105,11 +106,10 @@ class ServerFrameConsumer:
       fetched_item = self.frame_cache.fast_fetch(result_item['fid'])
 
       if fetched_item is not None:
-        self.rec_manager.save_frame(
-          fetched_item,
-          result_item['gx'], result_item['gy'],
-          result_item['lx'], result_item['ly'],
-        )
+        if result_item.get('tid', None) is not None:
+          tid, lx, ly = result_item['tid'], result_item['lx'], result_item['ly']
+          self.rec_manager.new_target(tid, lx, ly)
+        self.rec_manager.save_frame(fetched_item)
 
     except queue.Empty:
       pass  # Nothing to save

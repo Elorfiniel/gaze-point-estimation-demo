@@ -1,5 +1,6 @@
 import cv2  # OpenCV-Python
 import datetime
+import json
 import logging
 import os
 
@@ -56,7 +57,9 @@ class RecordingManager():
 
   def new_recording(self, folder=''):
     self.folder = folder or datetime.datetime.now().strftime('%m-%d-%Y-%H-%M-%S')
+
     self.item_count = 0
+    self.targets = []
 
     folder_path = os.path.join(self.root, self.folder)
 
@@ -65,16 +68,26 @@ class RecordingManager():
     except Exception as ex:
       logging.warning(f'cannot make recording folder "{folder_path}", due to {ex}')
 
-  def save_frame(self, frame, gx, gy, lx, ly, image_ext='.jpg'):
-    item_label = f'{gx:.4f}_{gy:.4f}_{lx:.4f}_{ly:.4f}'
-    frame_name = f'{self.item_count:05d} {item_label}.jpg'
+  def new_target(self, tid, lx, ly):
+    self.targets.append(dict(tid=tid, lx=lx, ly=ly, fids=[]))
 
+  def new_frame(self):
+    self.targets[-1]['fids'].append(self.item_count)
+    self.item_count += 1
+
+  def save_frame(self, frame, image_ext='.jpg'):
+    frame_name = f'{self.item_count:05d}{image_ext}'
     frame_path = os.path.join(self.root, self.folder, frame_name)
 
     try:  # Save frame to the specified path
       encoded, buffer = cv2.imencode(image_ext, frame)
       if encoded:
         buffer.tofile(frame_path)
-        self.item_count += 1
+        self.new_frame()
     except Exception as ex:
       logging.warning(f'cannot save frame to path "{frame_path}", due to {ex}')
+
+  def save_label(self):
+    label_path = os.path.join(self.root, self.folder, 'labels.json')
+    with open(label_path, 'w') as fp:
+      json.dump(self.targets, fp, indent=None)
