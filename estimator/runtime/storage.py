@@ -5,6 +5,11 @@ import logging
 import os
 
 
+def _dump_json(json_data, json_path):
+  with open(json_path, 'w') as fp:
+    json.dump(json_data, fp, indent=None)
+
+
 class FrameCache():
   def __init__(self, max_count=600):
     '''A simple FIFO cache with limited max size.'''
@@ -89,5 +94,4 @@ class RecordingManager():
 
   def save_label(self):
     label_path = os.path.join(self.root, self.folder, 'labels.json')
-    with open(label_path, 'w') as fp:
-      json.dump(self.targets, fp, indent=None)
+    _dump_json(self.targets, label_path)
