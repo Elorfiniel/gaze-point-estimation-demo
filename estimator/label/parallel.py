@@ -7,7 +7,7 @@ def _secure_done_fn(done_fn):
     try:
       done_fn(future) # Anticipating potential exceptions
     except Exception as ex:
-      logging.error(f'task generates an exception: {ex}')
+      logging.error(f'task generates an exception', exc_info=True)
 
   return wrapper
 
