@@ -1,0 +1,44 @@
+# Configuration for the Labeling Process
+
+# Checkpoint Config
+#   1. Path, absolute or relative to the directory of this config
+[checkpoint]
+model_path = 'checkpoint/model.onnx'
+
+# Transform Config, used for Preprocess
+#   1. Rescale to resolution (h, w) before image is sent to model
+[transform]
+rescale = { index = 0, tgt_res = [480, 640], resize = true }
+
+# Alignment Config
+#   1. Whether to treat the input as stand-alone images
+#   2. Minimum confidence value (0.0, 1.0) for successful face detection
+#   3. Minimum confidence value (0.0, 1.0) for successful face tracking
+[alignment]
+static_image_mode = true
+min_detection_confidence = 0.8
+min_tracking_confidence = 0.6
+
+# Inference Config
+#   1. Offset of screen topleft corner in camera coordinate system
+#   2. Screen size (height, weight) in pixels
+#   3. Screen size (height, weight) in centimeters
+#   4. Resize input face image for estimator, use default: 224x224
+#   5. Resize input eye images for estimator, use default: 224x224
+#   6. Parameters for one-euro filter along x-axis
+#   7. Parameters for one-euro filter along y-axis
+[inference]
+topleft_offset = [-15.5, -0.5]
+screen_size_px = [1080, 1920]
+screen_size_cm = [17.4, 31.0]
+face_resize = [224, 224]
+eyes_resize = [224, 224]
+gx_filt_params = { beta = 0.01, min_cutoff = 0.02, d_cutoff = 1.2, clock = true }
+gy_filt_params = { beta = 0.01, min_cutoff = 0.02, d_cutoff = 1.2, clock = true }
+
+# Outlier Pass Config
+#   1. Minimum number of samples required for a valid target
+#   2. Adaptive ratio for the number of neighbors used in LOF
+[outlier]
+min_samples = 4
+nn_ratio = 0.4
