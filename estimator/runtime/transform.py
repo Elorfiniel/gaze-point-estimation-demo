@@ -64,8 +64,6 @@ class Transforms:
 def rescale_frame(image, src_res, tgt_res, resize=True):
   '''Rescale source resolution to target resolution (crop + resize).'''
 
-  assert src_res[0] >= tgt_res[0] and src_res[1] >= tgt_res[1]
-
   src_asp = src_res[1] / src_res[0]
   tgt_asp = tgt_res[1] / tgt_res[0]
 
