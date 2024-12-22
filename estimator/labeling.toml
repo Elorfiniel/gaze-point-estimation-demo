@@ -42,3 +42,9 @@ gy_filt_params = { beta = 0.01, min_cutoff = 0.02, d_cutoff = 1.2, clock = true 
 [outlier]
 min_samples = 4
 nn_ratio = 0.4
+
+# Visualize Pass Config
+[visualize]
+figsize = [13, 6]
+subplots_adjust = { left = 0.08, right = 0.90 }
+limits = { x = [-20.0, 20.0], y = [-20.0, 0.0] }

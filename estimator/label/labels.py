@@ -1,5 +1,3 @@
-from abc import ABC, abstractmethod
-
 import json
 import os.path as osp
 
@@ -31,10 +29,17 @@ class _TargetIterator:
       raise StopIteration
 
 
-class LabelPass(ABC):
-  @abstractmethod
+class LabelPass:
   def action(self, target: dict):
     '''Process a single target, modify the target labels in place.'''
+    pass
+
+  def before_target_iter(self):
+    '''Called before the first target is processed.'''
+    pass
+
+  def after_target_iter(self):
+    '''Called after the last target is processed.'''
     pass
 
 class LabelLoop:
@@ -45,7 +50,9 @@ class LabelLoop:
     label_path = osp.join(self.folder, 'labels.json')
     label_data = _load_json(label_path)
 
+    label_action.before_target_iter()
     for target in _TargetIterator(label_data):
       label_action.action(target)
+    label_action.after_target_iter()
 
     _dump_json(label_data, label_path)

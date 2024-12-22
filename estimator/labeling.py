@@ -1,5 +1,6 @@
 from label.labels import LabelLoop, LabelPass
 from label.parallel import run_parallel
+from label.preview import *
 
 from runtime.es_config import EsConfig, EsConfigFns
 from runtime.facealign import FaceAlignment
@@ -91,9 +92,10 @@ class PseudoLabelPass(LabelPass):
     target['pogs'] = [r['pog_cam'] for r in results]
 
 class OutlierPass(LabelPass):
-  def __init__(self, min_samples=4, nn_ratio=0.4):
-    self.min_samples = min_samples
-    self.nn_ratio = nn_ratio
+  def __init__(self, record_path, recording, config: EsConfig):
+    pass_config = EsConfigFns.named_dict(config, 'outlier')
+    self.min_samples = pass_config['min_samples']
+    self.nn_ratio = pass_config['nn_ratio']
 
   def action(self, target):
     face_masks = np.array(target['face'], dtype=bool)
@@ -117,13 +119,48 @@ class OutlierPass(LabelPass):
 
     target['okay'] = masks.tolist()
 
+class VisualizePass(LabelPass):
+  def __init__(self, record_path, recording, config: EsConfig):
+    self.folder = osp.join(record_path, recording)
+    self.config = EsConfigFns.named_dict(config, 'visualize')
+
+  def _image_names(self, target, image_ext='.jpg'):
+    return [f'{fid:05d}{image_ext}' for fid in target['fids']]
+
+  def action(self, target):
+    pseudo_list = [p for p in target['pogs'] if p is not None]
+    image_paths = [
+      osp.join(self.folder, image_name)
+      for image_name in self._image_names(target)
+    ]
+
+    for image_path, pog, okay in zip(image_paths, target['pogs'], target['okay']):
+      self.params_list.append(dict(
+        image_path=image_path,
+        target=[target['lx'], target['ly']], pseudo=pog,
+        okay=okay, pseudo_list=pseudo_list,
+      ))
+
+  def before_target_iter(self):
+    fig, ax_image, ax_label = create_preview_plots(self.config)
+    self.plots = dict(fig=fig, ax_image=ax_image, ax_label=ax_label)
+    self.params_list = [] # Parameters for each target
+
+  def after_target_iter(self):
+    anim_path = osp.join(self.folder, 'labels.mp4')
+    function_animation(
+      params_list=self.params_list, **self.plots,
+    ).save(anim_path, writer='ffmpeg')
+    close_preview_plots(self.plots['fig'])
+
 
 
 def labeling_task(record_path, recording, config: EsConfig):
-  label_actions = []  # sequential actions to perform
+  label_actions = []  # Sequential actions to perform
 
-  label_actions.append(PseudoLabelPass(record_path, recording, config))
-  label_actions.append(OutlierPass(**EsConfigFns.named_dict(config, 'outlier')))
+  label_passes = [PseudoLabelPass, OutlierPass, VisualizePass]
+  for label_pass in label_passes:
+    label_actions.append(label_pass(record_path, recording, config))
 
   label_loop = LabelLoop(record_path, recording)
   for label_action in label_actions:
