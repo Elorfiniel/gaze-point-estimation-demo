@@ -217,7 +217,8 @@ if __name__ == '__main__':
 
   parser.add_argument('--config', type=str, default='labeling.toml',
                       help='Configuration for the labeling process.')
-  parser.add_argument('--max-workers', default=None, help='Maximum number of processes.')
+  parser.add_argument('--max-workers', type=int, default=None,
+                      help='Maximum number of processes.')
 
   targets = parser.add_mutually_exclusive_group(required=True)
   targets.add_argument('--record-path', type=str, help='The path to the stored recordings.')
