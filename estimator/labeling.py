@@ -1,5 +1,5 @@
 from label.labels import LabelLoop, LabelPass
-from label.parallel import run_parallel
+from label.parallel import FunctionalTask, run_parallel
 from label.preview import *
 
 from runtime.es_config import EsConfig, EsConfigFns
@@ -205,7 +205,7 @@ def main_procedure(cmdargs: argparse.Namespace):
   def task_generator():
     for recording in recordings:
       args = (record_path, recording, config)
-      yield labeling_task, args
+      yield FunctionalTask(labeling_task, *args)
 
   executor = futures.ProcessPoolExecutor(cmdargs.max_workers)
   run_parallel(executor, task_generator())
