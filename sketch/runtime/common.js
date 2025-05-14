@@ -38,4 +38,12 @@ class SimpleDict {
 
     return value
   }
+
+  keys() {
+    return Object.keys(this.dict)
+  }
+
+  values() {
+    return Object.values(this.dict)
+  }
 }

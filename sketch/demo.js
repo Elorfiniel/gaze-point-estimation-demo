@@ -486,6 +486,7 @@ function createViewsForOutro(ctx) {
 /**
  * Configure socket behaviors on message received.
  * Configure UI settings wrt the screen.
+ * Configure keyboard status on user interaction.
  */
 function configureSocket(ctx) {
   ctx.socket.setOnMessage((msgObj) => {
@@ -559,6 +560,23 @@ function configureViews(ctx) {
   ctx.values.add('outro-views', outroViews)
 }
 
+function configureKeyboard(ctx) {
+  ctx.keyboard.addKeys([
+    32, // Press SPACE to aim in key mode
+    46, // Press DELETE to skip the enemy
+  ])
+
+  ctx.keyboard.spaceAimed = () => {
+    const state = ctx.keyboard.keyState(32)
+    return state == ctx.keyboard.PRESSED ||
+      state == ctx.keyboard.HELD
+  }
+  ctx.keyboard.skipTarget = () => {
+    const state = ctx.keyboard.keyState(46)
+    return state == ctx.keyboard.PRESSED
+  }
+}
+
 
 /**
  * Primary draw functions at different game state.
@@ -623,9 +641,6 @@ function drawWhenOncam(ctx) {
 }
 
 function drawWhenGame(ctx) {
-  let [aimX, aimY] = [undefined, undefined]
-  const spacebar = keyIsPressed && keyCode == 32
-
   const gameViews = ctx.values.get('game-views')
   const recordMode = ctx.values.get('record-mode')
 
@@ -653,10 +668,17 @@ function drawWhenGame(ctx) {
   const nextReady = ctx.values.pop('next-ready')
   const gazeInfo = ctx.values.get('gaze-info', {valid: false, fid: -1})
 
+  let aimStatus = { valid: false, aimX: undefined, aimY: undefined }
   if (gazeInfo.valid == true) {
     // Semicolon is intentional here, otherwise ASI gives unexpected result
     const [sx, sy] = ctx.display.actual2screen(gazeInfo.gx, gazeInfo.gy);
-    [aimX, aimY] = ctx.display.screen2canvas(sx, sy, ctx.canvas, width, height);
+    const [cx, cy] = ctx.display.screen2canvas(sx, sy, ctx.canvas, width, height);
+    [aimStatus.valid, aimStatus.aimX, aimStatus.aimY] = [true, cx, cy];
+  }
+
+  let keyStatus = {
+    spaceAimed: ctx.keyboard.spaceAimed(),
+    skipTarget: ctx.keyboard.skipTarget(),
   }
 
   background(221, 230, 237)
@@ -695,7 +717,7 @@ function drawWhenGame(ctx) {
   drawViewsForState(ctx, gameViews)
 
   ctx.space.update()
-  ctx.game.update(aimX, aimY, spacebar, gazeInfo.valid)
+  ctx.game.update(aimStatus, keyStatus)
 }
 
 function drawWhenClose(ctx) {
@@ -812,8 +834,9 @@ function actOnSwitchToOutro(ctx) {
 /**
  * Switch game states.
  */
-function switchGameState(ctx) {
+function updateGameContext(ctx) {
   ctx.states.switchState()
+  ctx.keyboard.keyUpdate()
 }
 
 
@@ -836,12 +859,13 @@ function setup() {
   configureScreen(context)
   configureSocket(context)
   configureViews(context)
+  configureKeyboard(context)
 }
 
 function draw() {
   actOnStateUpdate(context)
   drawGameStates(context)
-  switchGameState(context)
+  updateGameContext(context)
 }
 
 

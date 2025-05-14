@@ -169,9 +169,7 @@ class GameSystem {
       aimY = this.activeEnemy.y
     }
 
-    if (aimX !== undefined && aimY !== undefined) {
-      this.cannonUpdateAngle(aimX, aimY)
-    }
+    if (status.moveCannon) this.cannonUpdateAngle(aimX, aimY)
   }
 
   cannonNeighbors(x1, y1, x2, y2, dist, ang) {
@@ -210,8 +208,8 @@ class GameSystem {
 
   enemyUpdate(status) {
     if (this.activeEnemy !== undefined) {
-      const killEnemy = this.aiming.update(status)
-      if (killEnemy == true) {
+      const updateAction = this.aiming.update(status)
+      if (updateAction == 'kill') {
         const hitRadius = sqrt(
           pow(this.cannon.x - this.activeEnemy.x, 2) +
           pow(this.cannon.y - this.activeEnemy.y, 2)
@@ -219,15 +217,15 @@ class GameSystem {
         this.cannon.openFire(this.cannonRotate(), hitRadius, this.cannonNbAng)
         this.explosionCreate(this.activeEnemy.x, this.activeEnemy.y)
 
+        this.enemyKilled = this.enemyKilled + 1
+
         this.enemyCorpse = this.activeEnemy
-        this.enemyKilled += 1
         this.activeEnemy = undefined
-      } else {
-        this.activeEnemy.update()
-      }
-    } else {
-      this.enemyCreate(0.2, 4, true)
-    }
+      } else if (updateAction == 'skip') {
+        this.enemyCorpse = this.activeEnemy
+        this.activeEnemy = undefined
+      } else this.activeEnemy.update()
+    } else this.enemyCreate(0.2, 4, true)
   }
 
   explosionCreate(x, y) {
@@ -270,15 +268,34 @@ class GameSystem {
     pop()
   }
 
-  update(aimX, aimY, spacebar = false, gazeValid = false) {
-    const glared = this.activeEnemy !== undefined &&
-        gazeValid && this.cannonNeighbors(
-      aimX, aimY, this.activeEnemy.x, this.activeEnemy.y,
-      this.cannonNbDist, this.cannonNbAng,
-    )
-    const status = { glared: glared, spacebar: spacebar }
+  update(aimStatus, keyStatus) {
+    /**
+     * Update game system with aiming status and keystroke status
+     *
+     * The aim status contains:
+     *   1. valid: whether the aimed position is valid
+     *   2. aimX: the x-coordinate of the aimed position
+     *   3. aimY: the y-coordinate of the aimed position
+     *
+     * The key status contains:
+     *   1. skipTarget: current enemy should be skipped
+     *   2. spaceAimed: current enemy aimed by SPACE key
+     */
 
-    this.cannonUpdate(aimX, aimY, status)
+    const moveCannon = aimStatus.aimX !== undefined && aimStatus.aimY !== undefined
+    const pointAimed = this.activeEnemy !== undefined &&
+      aimStatus.valid && this.cannonNeighbors(
+        aimStatus.aimX, aimStatus.aimY,
+        this.activeEnemy.x, this.activeEnemy.y,
+        this.cannonNbDist, this.cannonNbAng,
+      )
+
+    const status = {
+      moveCannon: moveCannon, skipTarget: keyStatus.skipTarget,
+      pointAimed: pointAimed, spaceAimed: keyStatus.spaceAimed,
+    }
+
+    this.cannonUpdate(aimStatus.aimX, aimStatus.aimY, status)
     this.enemyUpdate(status)
     this.explosionUpdate()
   }

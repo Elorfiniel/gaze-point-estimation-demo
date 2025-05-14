@@ -2,19 +2,36 @@
  * Helper functions.
  */
 function aimingStateUpdate(change, initFn, resetFn, updateFn) {
-  if (change.init) {
-    initFn()    // Initialize tracking record
-  } else if (change.drop || change.kill) {
-    resetFn()   // Reset tracking record
+  /**
+   * The update status contains these flags:
+   *   1. skip: reset tracking record (skip current enemy)
+   *   2. init: initialize tracking record
+   *   3. kill: reset tracking record (kill current enemy)
+   *   4. fail: reset tracking record (unsuccessful aiming)
+   */
+
+  if (change.skip) {
+    resetFn()
+    return 'skip'
+  } else if (change.init) {
+    initFn()
+    return 'init'
+  } else if (change.kill) {
+    resetFn()
+    return 'kill'
+  } else if (change.fail) {
+    resetFn()
+    return 'fail'
   } else {
-    updateFn()  // Update tracking record
+    updateFn()
+    return 'update'
   }
 }
 
 
 /**
- * Gaze aiming: when PoG (eg. mouse simulated) falls within close range to the target
- * Hard aiming: press SPACEBAR, until the aiming hint covers the heart of the enemy
+ * PointAim: when PoG (eg. mouse simulated) falls within close range to the target
+ * SpaceAim: press SPACEBAR, until the aiming hint covers the center of the enemy
  */
 class PoGAiming {
   constructor() {
@@ -24,7 +41,7 @@ class PoGAiming {
   }
 
   cannonUpdate(status) {
-    return status.glared
+    return status.pointAimed
   }
 
   onTarget(track, value) {
@@ -55,20 +72,19 @@ class PoGAiming {
   }
 
   update(status, track, value) {
-    const ratio = value / this.limit
-    const killc = ratio >= this.killThres
+    const currThres = value / this.limit
 
-    let newValue = value + (status.glared ? 1 : -1)
+    let newValue = value + (status.pointAimed ? 1 : -1)
     newValue = constrain(newValue, 0, this.limit)
 
-    let change = {
-      init: !track && status.glared,
-      value: track ? newValue : value,
-      drop: track && newValue == 0,
+    const change = {
+      skip: status.skipTarget,
+      init: !track && status.pointAimed,
+      fail: track && newValue == 0,
+      kill: track && currThres >= this.killThres,
     }
-    change.kill = killc
 
-    return change
+    return { ...change, value: newValue }
   }
 }
 
@@ -80,7 +96,7 @@ class KeyAiming {
   }
 
   cannonUpdate(status) {
-    return status.spacebar
+    return status.spaceAimed
   }
 
   onTarget(track, value) {
@@ -118,21 +134,22 @@ class KeyAiming {
   }
 
   update(status, track, value) {
-    const ratio = value / this.limit
-    const killc = ratio >= this.killThres && ratio <= 2 - this.killThres
+    const currThres = value / this.limit
 
-    let newValue = value + (status.spacebar ? 1 : -1)
+    let newValue = value + (status.spaceAimed ? 1 : -1)
     newValue = newValue % (2 * this.limit)
     newValue = constrain(newValue, 0, 2 * this.limit)
 
-    let change = {
-      init: !track && status.spacebar,
-      value: track ? newValue : value,
-      drop: track && !status.spacebar,
+    const change = {
+      skip: status.skipTarget,
+      init: !track && status.spaceAimed,
+      fail: track && !status.spaceAimed,
+      kill: track && !status.spaceAimed &&
+        currThres >= this.killThres &&
+        currThres <= 2 - this.killThres,
     }
-    change.kill = change.drop && killc
 
-    return change
+    return { ...change, value: newValue }
   }
 }
 
@@ -160,9 +177,9 @@ class KeyPoGAiming {
     let newStartegy = undefined
 
     if (this.strategy === undefined) {
-      newStartegy = status.spacebar ? new KeyAiming() :
-        (status.glared ? new PoGAiming() : undefined)
-    } else if (status.spacebar && this.strategy instanceof PoGAiming) {
+      newStartegy = status.spaceAimed ? new KeyAiming() :
+        (status.pointAimed ? new PoGAiming() : undefined)
+    } else if (status.spaceAimed && this.strategy instanceof PoGAiming) {
       newStartegy = new KeyAiming()
     }
 
@@ -175,25 +192,23 @@ class KeyPoGAiming {
   update(status, track, value) {
     this.switchAimingStrategy(status)
 
-    let retval = {init: false, value: 0, drop: false, kill: false}
-
+    let retval = {skip: false, init: false, kill: false, fail: false}
     if (this.strategy !== undefined) {
       const change = this.strategy.update(status, track, this.value)
 
       aimingStateUpdate(
         change,
-        () => { retval.init = change.init },
+        () => {},
         () => {
-          retval.drop = change.drop
           this.strategy = undefined
           this.value = 0
         },
         () => { this.value = change.value },
       )
-      retval.kill = change.kill
+      retval = Object.assign(retval, change)
     }
 
-    return retval
+    return { ...retval, value: 0 }
   }
 }
 
@@ -226,13 +241,11 @@ class Aiming {
       status, this.record.track, this.record.value
     )
 
-    aimingStateUpdate(
+    return aimingStateUpdate(
       change,
       () => { this.record.track = true },
       () => { this.resetRecord() },
       () => { this.record.value = change.value },
     )
-
-    return change.kill
   }
 }
