@@ -507,7 +507,7 @@ function createViewsForExit(ctx) {
 /**
  * Configure socket behaviors on message received.
  * Configure UI settings wrt the screen.
- * Configure keyboard status on user interaction.
+ * Configure mouse and keyboard inputs.
  */
 function configureSocket(ctx) {
   ctx.socket.setOnMessage((msgObj) => {
@@ -583,20 +583,20 @@ function configureViews(ctx) {
   ctx.values.add('exit-views', exitViews)
 }
 
-function configureKeyboard(ctx) {
-  ctx.keyboard.addKeys([
+function configureInputs(ctx) {
+  ctx.inputs.addKeys([
     32, // Press SPACE to aim in key mode
     46, // Press DELETE to skip the enemy
   ])
 
-  ctx.keyboard.spaceAimed = () => {
-    const state = ctx.keyboard.keyState(32)
-    return state == ctx.keyboard.PRESSED ||
-      state == ctx.keyboard.HELD
+  ctx.inputs.spaceAimed = () => {
+    const state = ctx.inputs.keyState(32)
+    return state == ctx.inputs.PRESSED ||
+      state == ctx.inputs.HELD
   }
-  ctx.keyboard.skipTarget = () => {
-    const state = ctx.keyboard.keyState(46)
-    return state == ctx.keyboard.PRESSED
+  ctx.inputs.skipTarget = () => {
+    const state = ctx.inputs.keyState(46)
+    return state == ctx.inputs.PRESSED
   }
 }
 
@@ -687,8 +687,8 @@ function drawWhenGame(ctx) {
   }
 
   let keyStatus = {
-    spaceAimed: ctx.keyboard.spaceAimed(),
-    skipTarget: ctx.keyboard.skipTarget(),
+    spaceAimed: ctx.inputs.spaceAimed(),
+    skipTarget: ctx.inputs.skipTarget(),
   }
 
   const recordMode = ctx.values.get('record-mode')
@@ -847,7 +847,7 @@ function actOnSwitchToExit(ctx) {
  */
 function updateGameContext(ctx) {
   ctx.states.switchState()
-  ctx.keyboard.keyUpdate()
+  ctx.inputs.inputsUpdate()
 }
 
 
@@ -870,7 +870,7 @@ function setup() {
   configureScreen(context)
   configureSocket(context)
   configureViews(context)
-  configureKeyboard(context)
+  configureInputs(context)
 }
 
 function draw() {

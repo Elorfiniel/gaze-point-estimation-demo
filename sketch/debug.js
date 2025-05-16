@@ -1,20 +1,20 @@
 /**
- * Configure keyboard status on user interaction.
+ * Configure mouse and keyboard inputs.
  */
-function configureKeyboard(ctx) {
-  ctx.keyboard.addKeys([
+function configureInputs(ctx) {
+  ctx.inputs.addKeys([
     32, // Press SPACE to aim in key mode
     46, // Press DELETE to skip the enemy
   ])
 
-  ctx.keyboard.spaceAimed = () => {
-    const state = ctx.keyboard.keyState(32)
-    return state == ctx.keyboard.PRESSED ||
-      state == ctx.keyboard.HELD
+  ctx.inputs.spaceAimed = () => {
+    const state = ctx.inputs.keyState(32)
+    return state == ctx.inputs.PRESSED ||
+      state == ctx.inputs.HELD
   }
-  ctx.keyboard.skipTarget = () => {
-    const state = ctx.keyboard.keyState(46)
-    return state == ctx.keyboard.PRESSED
+  ctx.inputs.skipTarget = () => {
+    const state = ctx.inputs.keyState(46)
+    return state == ctx.inputs.PRESSED
   }
 }
 
@@ -26,8 +26,8 @@ function drawGameStates(ctx) {
   let aimStatus = { valid: true, aimX: mouseX, aimY: mouseY }
 
   let keyStatus = {
-    spaceAimed: ctx.keyboard.spaceAimed(),
-    skipTarget: ctx.keyboard.skipTarget(),
+    spaceAimed: ctx.inputs.spaceAimed(),
+    skipTarget: ctx.inputs.skipTarget(),
   }
 
   background(221, 230, 237)
@@ -43,7 +43,7 @@ function drawGameStates(ctx) {
  * Switch game states.
  */
 function updateGameContext(ctx) {
-  ctx.keyboard.keyUpdate()
+  ctx.inputs.inputsUpdate()
 }
 
 
@@ -61,8 +61,8 @@ function setup() {
   const aiming = 'key+pog', emitter = {name: 'demo'}
   context.game = new GameSystem(windowWidth / 2, -2, aiming, emitter)
 
-  context.keyboard = new KeyboardManager()
-  configureKeyboard(context)
+  context.inputs = new InputsManager()
+  configureInputs(context)
 }
 
 function draw() {

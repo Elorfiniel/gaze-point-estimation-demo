@@ -1,20 +1,20 @@
-class KeyboardManager {
+class InputsManager {
   constructor() {
-    this.dict = new SimpleDict()
-
     this.NONE = 'NONE'
     this.PRESSED = 'PRESSED'
     this.HELD = 'HELD'
     this.RELEASED = 'RELEASED'
+
+    this.keys = new SimpleDict()
   }
 
   addKey(keycode) {
-    const state = this.dict.get(keycode, this.NONE)
-    this.dict.add(keycode, state)
+    const state = this.keys.get(keycode, this.NONE)
+    this.keys.add(keycode, state)
   }
 
   delKey(keycode) {
-    this.dict.pop(keycode)
+    this.keys.pop(keycode)
   }
 
   addKeys(keycodes) {
@@ -27,11 +27,11 @@ class KeyboardManager {
       this.delKey(keycode)
   }
 
-  keyUpdate() {
-    for (let key of this.dict.keys()) {
+  inputsUpdate() {
+    for (let key of this.keys.keys()) {
       const keycode = parseInt(key, 10)
 
-      const state = this.dict.get(keycode)
+      const state = this.keys.get(keycode)
       const down = keyIsDown(keycode)
 
       let newState = this.NONE
@@ -50,11 +50,11 @@ class KeyboardManager {
           break
       }
 
-      this.dict.add(keycode, newState)
+      this.keys.add(keycode, newState)
     }
   }
 
   keyState(keycode) {
-    return this.dict.get(keycode)
+    return this.keys.get(keycode)
   }
 }
