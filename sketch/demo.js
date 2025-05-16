@@ -51,7 +51,7 @@ function createViewsForIntro(ctx) {
       const recordMode = c.values.get('record-mode')
       const [uiShiftX, uiShiftY] = c.values.get('ui-shift')
 
-      const warnIntro = '[  摄  像  头  调  用  说  明  ]'
+      const warnIntro = '[  注  视  射  击  游  戏  ]'
       const warnContent = '请注意，本游戏在运行过程中需要调用摄像头拍摄您的面部图像。' +
         '当您点击 “开始游戏” 按钮，即表示您知晓、理解并允许我们捕获您的面部图像。' +
         '我们的算法将试图从捕获的面部图像中分析您的视线方向，以估计您在屏幕上注视的的位置。' +
@@ -165,7 +165,7 @@ function createViewsForIntro(ctx) {
       text(buttonText, 844.0 + uiShiftX, 611.8 + uiShiftY)
 
       if (onHover && mouseIsPressed) {
-        c.socket.sendMessage({ opcode: 'kill_server' })
+        c.states.setFutureState(c.states.states.EXIT)
       }
     },
   )
@@ -482,6 +482,27 @@ function createViewsForOutro(ctx) {
   return ['congrats', 'restart-button']
 }
 
+function createViewsForExit(ctx) {
+  createViewHelper(
+    'exit-game',
+    ctx,
+    (c) => {
+      const messageText = '[  游  戏  结  束  ，  再  见  ]'
+
+      const [uiShiftX, uiShiftY] = c.values.get('ui-shift')
+
+      noFill()
+      stroke(169, 29, 58)
+      strokeWeight(1.6)
+      textAlign(CENTER, TOP)
+      textSize(32)
+      text(messageText, 764.0 + uiShiftX, 430.0 + uiShiftY)
+    },
+  )
+
+  return ['exit-game']
+}
+
 
 /**
  * Configure socket behaviors on message received.
@@ -558,6 +579,8 @@ function configureViews(ctx) {
   ctx.values.add('close-views', closeViews)
   const outroViews = createViewsForOutro(ctx)
   ctx.values.add('outro-views', outroViews)
+  const exitViews = createViewsForExit(ctx)
+  ctx.values.add('exit-views', exitViews)
 }
 
 function configureKeyboard(ctx) {
@@ -603,6 +626,9 @@ function drawGameStates(ctx) {
       break
     case allStates.OUTRO:
       drawWhenOutro(ctx)
+      break
+    case allStates.EXIT:
+      drawWhenExit(ctx)
       break
   }
 }
@@ -742,6 +768,17 @@ function drawWhenOutro(ctx) {
   ctx.space.update()
 }
 
+function drawWhenExit(ctx) {
+  const exitViews = ctx.values.get('exit-views')
+
+  background(221, 230, 237)
+  ctx.space.draw()
+
+  drawViewsForState(ctx, exitViews)
+
+  ctx.space.update()
+}
+
 
 
 /**
@@ -770,6 +807,9 @@ function actOnStateUpdate(ctx) {
         break
       case allStates.OUTRO:
         actOnSwitchToOutro(ctx)
+        break
+      case allStates.EXIT:
+        actOnSwitchToExit(ctx)
         break
     }
   }
@@ -826,6 +866,11 @@ function actOnSwitchToClose(ctx) {
 }
 
 function actOnSwitchToOutro(ctx) {
+  ctx.socket.closeSocket()
+}
+
+function actOnSwitchToExit(ctx) {
+  ctx.socket.sendMessage({ opcode: 'kill_server' })
   ctx.socket.closeSocket()
 }
 

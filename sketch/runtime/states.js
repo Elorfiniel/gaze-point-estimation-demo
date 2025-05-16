@@ -6,6 +6,7 @@ class GameStates {
     this.GAME = 'GAME'
     this.CLOSE = 'CLOSE'
     this.OUTRO = 'OUTRO'
+    this.EXIT = 'EXIT'
   }
 }
 
