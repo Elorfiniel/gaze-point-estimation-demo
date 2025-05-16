@@ -63,7 +63,7 @@ pv_size = [1080, 1920]
 websocket = { host = 'localhost', port = 4200 }
 http = { host = 'localhost', port = 5500 }
 record = { path = 'capture', inference = true }
-browser = true
+browser = { open = true }
 
 # Settings for gaze shooting game, used for server hello packet
 #   1. Check camera and record folder name

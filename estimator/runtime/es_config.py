@@ -60,7 +60,7 @@ class EsConfigFns:
 
   @staticmethod
   def open_browser(es_config: EsConfig) -> bool:
-    return es_config['server']['browser']
+    return es_config['server']['browser']['open']
 
   @staticmethod
   def set_config_path(es_config: EsConfig, config_path: str):

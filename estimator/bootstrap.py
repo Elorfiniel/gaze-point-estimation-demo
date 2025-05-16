@@ -21,6 +21,7 @@ import logging
 import os.path as osp
 import sys
 import threading
+import webbrowser
 
 
 def entry_server_mode(config_updater_path):
@@ -41,6 +42,8 @@ def entry_server_mode(config_updater_path):
   http_thread.start()
 
   game_url = 'http://{host}:{port}/demo.html'.format(**http_server_addr)
+  if EsConfigFns.open_browser(es_config):
+    webbrowser.open(game_url, new=2, autoraise=True)
   logging.info(f'serving eye shooting game on {game_url}')
 
   ws_handler = functools.partial(websocket_handler, es_config=es_config)
