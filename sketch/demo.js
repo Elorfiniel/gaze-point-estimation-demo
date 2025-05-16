@@ -608,6 +608,9 @@ function drawGameStates(ctx) {
   const presentState = ctx.states.presentState()
   const allStates = ctx.states.allStates()
 
+  background(221, 230, 237)
+  ctx.space.draw()
+
   switch (presentState) {
     case allStates.INTRO:
       drawWhenIntro(ctx)
@@ -631,45 +634,26 @@ function drawGameStates(ctx) {
       drawWhenExit(ctx)
       break
   }
+
+  ctx.space.update()
 }
 
 function drawWhenIntro(ctx) {
   const introViews = ctx.values.get('intro-views')
-
-  background(221, 230, 237)
-  ctx.space.draw()
-
   drawViewsForState(ctx, introViews)
-
-  ctx.space.update()
 }
 
 function drawWhenCheck(ctx) {
   const checkViews = ctx.values.get('check-views')
-
-  background(221, 230, 237)
-  ctx.space.draw()
-
   drawViewsForState(ctx, checkViews)
-
-  ctx.space.update()
 }
 
 function drawWhenOncam(ctx) {
   const oncamViews = ctx.values.get('oncam-views')
-
-  background(221, 230, 237)
-  ctx.space.draw()
-
   drawViewsForState(ctx, oncamViews)
-
-  ctx.space.update()
 }
 
 function drawWhenGame(ctx) {
-  const gameViews = ctx.values.get('game-views')
-  const recordMode = ctx.values.get('record-mode')
-
   /**
    * The server sends "next-ready" status whenever a new frame is processed
    *
@@ -707,9 +691,7 @@ function drawWhenGame(ctx) {
     skipTarget: ctx.keyboard.skipTarget(),
   }
 
-  background(221, 230, 237)
-  ctx.space.draw()
-  ctx.game.draw()
+  const recordMode = ctx.values.get('record-mode')
 
   if (recordMode == true && nextReady == true) {
     /**
@@ -740,43 +722,27 @@ function drawWhenGame(ctx) {
     }
   }
 
+  ctx.game.draw()
+
+  const gameViews = ctx.values.get('game-views')
   drawViewsForState(ctx, gameViews)
 
-  ctx.space.update()
   ctx.game.update(aimStatus, keyStatus)
 }
 
 function drawWhenClose(ctx) {
   const closeViews = ctx.values.get('close-views')
-
-  background(221, 230, 237)
-  ctx.space.draw()
-
   drawViewsForState(ctx, closeViews)
-
-  ctx.space.update()
 }
 
 function drawWhenOutro(ctx) {
   const outroViews = ctx.values.get('outro-views')
-
-  background(221, 230, 237)
-  ctx.space.draw()
-
   drawViewsForState(ctx, outroViews)
-
-  ctx.space.update()
 }
 
 function drawWhenExit(ctx) {
   const exitViews = ctx.values.get('exit-views')
-
-  background(221, 230, 237)
-  ctx.space.draw()
-
   drawViewsForState(ctx, exitViews)
-
-  ctx.space.update()
 }
 
 
