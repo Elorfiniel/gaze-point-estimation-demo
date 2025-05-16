@@ -6,6 +6,9 @@ function configureInputs(ctx) {
     32, // Press SPACE to aim in key mode
     46, // Press DELETE to skip the enemy
   ])
+  ctx.inputs.addBtns([
+    0,  // Left Button
+  ])
 
   ctx.inputs.spaceAimed = () => {
     const state = ctx.inputs.keyState(32)
@@ -68,6 +71,4 @@ function setup() {
 function draw() {
   drawGameStates(context)
   updateGameContext(context)
-
-  console.log(context.game.getGameScore())
 }

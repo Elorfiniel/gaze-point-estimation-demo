@@ -117,7 +117,7 @@ function createViewsForIntro(ctx) {
       textSize(24)
       text(buttonText, 684.0 + uiShiftX, 611.8 + uiShiftY)
 
-      if (onHover && mouseIsPressed) {
+      if (onHover && c.inputs.clickMouse()) {
         c.display.setClientOrig(devMouseX, devMouseY, winMouseX, winMouseY)
 
         const gameSettings = c.values.get('game-settings')
@@ -164,7 +164,7 @@ function createViewsForIntro(ctx) {
       textSize(24)
       text(buttonText, 844.0 + uiShiftX, 611.8 + uiShiftY)
 
-      if (onHover && mouseIsPressed) {
+      if (onHover && c.inputs.clickMouse()) {
         c.states.setFutureState(c.states.states.EXIT)
       }
     },
@@ -300,7 +300,7 @@ function createViewsForCheck(ctx) {
       textSize(24)
       text(buttonText, 884.0 + uiShiftX, 426.0 + uiShiftY)
 
-      if (onHover && mouseIsPressed) {
+      if (onHover && c.inputs.clickMouse()) {
         c.states.setFutureState(c.states.states.ONCAM)
       }
     },
@@ -473,7 +473,7 @@ function createViewsForOutro(ctx) {
       textSize(24)
       text(buttonText, 764.0 + uiShiftX, 580.8 + uiShiftY)
 
-      if (onHover && mouseIsPressed) {
+      if (onHover && c.inputs.clickMouse()) {
         c.states.setFutureState(c.states.states.INTRO)
       }
     },
@@ -588,6 +588,9 @@ function configureInputs(ctx) {
     32, // Press SPACE to aim in key mode
     46, // Press DELETE to skip the enemy
   ])
+  ctx.inputs.addBtns([
+    0,  // Click LEFT button to control UI
+  ])
 
   ctx.inputs.spaceAimed = () => {
     const state = ctx.inputs.keyState(32)
@@ -597,6 +600,10 @@ function configureInputs(ctx) {
   ctx.inputs.skipTarget = () => {
     const state = ctx.inputs.keyState(46)
     return state == ctx.inputs.PRESSED
+  }
+  ctx.inputs.clickMouse = () => {
+    const state = ctx.inputs.btnState(0)
+    return state == ctx.inputs.RELEASED
   }
 }
 
