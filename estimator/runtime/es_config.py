@@ -59,6 +59,10 @@ class EsConfigFns:
     return es_config['server']['websocket'].to_dict()
 
   @staticmethod
+  def open_browser(es_config: EsConfig) -> bool:
+    return es_config['server']['browser']
+
+  @staticmethod
   def set_config_path(es_config: EsConfig, config_path: str):
     setattr(es_config, 'config_path', config_path)
 

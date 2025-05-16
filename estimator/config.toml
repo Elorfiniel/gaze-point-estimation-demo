@@ -20,10 +20,12 @@ resolution = [720, 1280]
 #   1. Host and Port for websocket server
 #   2. Host and Port for http server
 #   3. Record mode configuration
+#   4. Browser configuration
 [server]
 websocket = { host = 'localhost', port = 4200 }
 http = { host = 'localhost', port = 5500 }
 record = { path = 'capture', inference = true }
+browser = true
 
 # Settings for gaze shooting game, used for server hello packet
 #   1. Check camera and record folder name

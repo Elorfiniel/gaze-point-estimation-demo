@@ -19,6 +19,7 @@ import numpy as np
 import os.path as osp
 import queue
 import threading
+import webbrowser
 import websockets
 
 
@@ -338,6 +339,8 @@ def entry_server_mode(config_path):
   http_thread.start()
 
   game_url = 'http://{host}:{port}/demo.html'.format(**http_server_addr)
+  if EsConfigFns.open_browser(es_config):
+    webbrowser.open(game_url, new=2, autoraise=True)
   logging.info(f'serving eye shooting game on {game_url}')
 
   ws_handler = functools.partial(websocket_handler, es_config=es_config)
