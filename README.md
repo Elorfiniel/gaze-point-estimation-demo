@@ -1,6 +1,6 @@
 # Gaze Point Estimation (Demo)
 
-A Processing Demo for the Application of PoG Estimation. Model Trained using this Codebase: [gaze-point-estimation-2023](https://gitee.com/elorfiniel/gaze-point-estimation-2023).
+A demo for the application of PoG (Point-of-Gaze) Estimation. Model Trained using this codebase: [gaze-point-estimation-2023](https://gitee.com/elorfiniel/gaze-point-estimation-2023).
 
 | Intro | Game | Outro |
 | -------------- | -------------- | -------------- |
@@ -14,7 +14,7 @@ The demo consists of a Python backend (server) and a JavaScript frontend (client
 2. Start the python backend (`estimator/estimator.py`).
 3. Visit the hosted demo webpage (`sketch/demo.html`).
 
-The following cheatsheet demonstrates how you can setup and run this demo from the command line. ~~Alternatively, you can serve the demo webpage on your own (for instance, using the [Live Server Extension](https://marketplace.visualstudio.com/items?itemName=ritwickdey.LiveServer) in Visual Studio Code).~~ The latest update integrates an http server in the backend, so simply open the webpage (default: `http://localhost:5500/demo.html`) in the browser.
+The following cheatsheet demonstrates how you can setup and run this demo from the command line. The latest update integrates an http server in the backend, which serves the frontend on `http://localhost:5500` by default. Furthermore, the server will try opening the demo page `demo.html` automatically in the default browser on successful start.
 
 ### Install Dependencies
 
@@ -33,6 +33,10 @@ pip install -r estimator/requirements.txt
 
 Now, you'll have the environment properly setup.
 
+### Download Resources
+
+Follow instructions in `estimator/checkpoint/README.md` (for ONNX model) and `sketch/assets/README.md` (for font file) to download the required resources before running the demo.
+
 ### Run the Demo
 
 ```shell
@@ -41,11 +45,11 @@ Now, you'll have the environment properly setup.
 cd estimator && python estimator.py --mode server
 ```
 
-Now, open the browser and visit [the demo page](http://localhost:5500/demo.html) served on `localhost:5500`.
+If everything goes well, [the demo page](http://localhost:5500/demo.html) will be opened in the browser.
 
 ## Configuration
 
-Different laptops comes with different screen size and resolution. The default configuration assumes running the demo on a `lenovo yoga c740` laptop. If you are using a different laptop, you can adjust the configuration in `estimator/estimator.toml` to match your screen size and resolution. Check out the comments in the configuration file for more details.
+Different laptops comes with different screen size and resolution. The default configuration assumes running the demo on a `lenovo yoga c740` laptop. If you are using a different laptop, you can adjust the configuration in `estimator/estimator.toml` to match your screen size and resolution. Check out the comments in the configuration file for more details. By modifying the configuration, you can adjust the server to match your own use case.
 
 Most notably, you may need to adjust the `topleft_offset` (measured in centimeters), `screen_size_px` (measured in pixels) and `screen_size_cm` (measured in centimeters) in `estimator/estimator.toml` according to your screen size and resolution.
 
@@ -77,7 +81,7 @@ pyinstaller --distpath ../bundle/dist --workpath ../bundle/build bootstrap.spec
 cp config.toml ../bundle/dist/config.toml
 ```
 
-The above command will use the `bundle` directory during the bundling process. The bundled application locates in `bundle/dist`, and can be run directly from the command line, eg `./bootstrap.exe`.
+The above command will use the `bundle` directory during the bundling process. The bundled application locates in `bundle/dist`, and can be run directly from the command line, eg `./bootstrap.exe`. An extra config file `config.toml` overrides the default configuration in `estimator/estimator.toml`, which has been packaged into the application.
 
 For implementation details about the bundling process, take a look at the `bootstrap.spec` file. You may also find these resources useful: 1. [Using PyInstaller](https://pyinstaller.org/en/stable/usage.html), 2. [Using Spec Files](https://pyinstaller.org/en/stable/spec-files.html), 3. [Runtime Information](https://pyinstaller.org/en/stable/runtime-information.html).
 
