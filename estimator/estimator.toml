@@ -62,7 +62,7 @@ pv_size = [1080, 1920]
 [server]
 websocket = { host = 'localhost', port = 4200 }
 http = { host = 'localhost', port = 5500 }
-record = { path = 'capture', inference = true }
+record = { path = '', inference = true }
 browser = { open = true }
 
 # Settings for gaze shooting game, used for server hello packet
@@ -71,7 +71,7 @@ browser = { open = true }
 #   3. Aiming mode (pog, key, key+pog)
 #   4. EnemyEmitter configs (name and extra arguments)
 [game]
-check = { camera = true, rename = true }
+check = { camera = true, rename = false }
 countdown = { mode = 'seconds', value = 90 }
 aiming = 'pog'
 emitter = { name = 'demo' }
