@@ -7,11 +7,11 @@ from runtime.facealign import FaceAlignment
 from runtime.inference import Inferencer
 from runtime.pipeline import load_model
 from runtime.transform import Transforms
+from runtime.log import runtime_logger
 
 import argparse
 import cv2
 import concurrent.futures as futures
-import logging
 import numpy as np
 import os
 import os.path as osp
@@ -154,6 +154,8 @@ class VisualizePass(LabelPass):
     close_preview_plots(self.plots['fig'])
 
 
+rt_logger = runtime_logger(name='labeling')
+
 
 def labeling_task(record_path, recording, config: EsConfig):
   label_actions = []  # Sequential actions to perform
@@ -165,6 +167,8 @@ def labeling_task(record_path, recording, config: EsConfig):
   label_loop = LabelLoop(record_path, recording)
   for label_action in label_actions:
     label_loop.process(label_action)
+
+  rt_logger.info(f'finished the labeling pipeline for recording "{recording}"')
 
 def collect_recordings(cmdargs: argparse.Namespace):
   # Collect all recordings under the given path
@@ -182,18 +186,11 @@ def collect_recordings(cmdargs: argparse.Namespace):
   if recordings:
     recordings.sort(reverse=False)
 
-  logging.info(f'collected {len(recordings)} recordings from "{record_path}"')
+  rt_logger.info(f'collected {len(recordings)} recordings from "{record_path}"')
 
   return record_path, recordings
 
 
-
-def configure_logging(level=logging.INFO, force=False):
-  logging.basicConfig(
-    level=level, force=force,
-    format='[ %(asctime)s ] process %(process)d - %(levelname)s: %(message)s',
-    datefmt='%m-%d %H:%M:%S',
-  )
 
 def main_procedure(cmdargs: argparse.Namespace):
   config_path = osp.abspath(cmdargs.config)
@@ -224,5 +221,4 @@ if __name__ == '__main__':
   targets.add_argument('--record-path', type=str, help='The path to the stored recordings.')
   targets.add_argument('--recording', type=str, help='The path to a specific recording.')
 
-  configure_logging(logging.WARN, force=True)
   main_procedure(parser.parse_args())
