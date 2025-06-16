@@ -93,7 +93,7 @@ def aligned_face(image: np.ndarray, landmarks: np.ndarray, theta: float):
   return face_patch
 
 
-class MpInferencer(Inferencer):
+class MediaPipeInferencer(Inferencer):
 
   EXPECTED_LDMK_INDICES = np.array([
     122, 193, 55, 65, 52, 53, 46, 124, 35, 31, 228, 229, 230, 231, 232, 128, 245,
@@ -144,26 +144,29 @@ class MpInferencer(Inferencer):
 
 class FaceDetectPass(BasePass):
 
-  PASS_NAME = 'mp_pass.face_detect'
+  PASS_NAME = 'face_pass.face_detect'
 
   def __init__(self, recording_path: str, an_config: EsConfig):
     self.recording_path = recording_path
     self.an_config = an_config
 
   def before_pass(self, context: dict, **kwargs):
+    pass_config = EsConfigFns.named_dict(self.an_config, 'face_pass')
+
     if context.get('labels') is None:
       raise RuntimeError(f'{self.PASS_NAME} requires "labels" in context')
 
-    self.pass_folder = osp.join(self.recording_path, 'mediapipe')
-    context['mp_folder'] = self.pass_folder
-    os.makedirs(self.pass_folder, exist_ok=True)
+    if pass_config['run_facenet']:
+      self.facenet_folder = osp.join(self.recording_path, 'facenet')
+      context['facenet_folder'] = self.facenet_folder
+      os.makedirs(self.facenet_folder, exist_ok=True)
 
     config_path = EsConfigFns.get_config_path(self.an_config)
     self.model = load_model(config_path, **EsConfigFns.named_dict(self.an_config, 'checkpoint'))
 
     self.transforms = Transforms(**EsConfigFns.named_dict(self.an_config, 'transform'))
     self.alignment = FaceAlignment(**EsConfigFns.named_dict(self.an_config, 'alignment'))
-    self.inferencer = MpInferencer(**EsConfigFns.named_dict(self.an_config, 'inference'))
+    self.inferencer = MediaPipeInferencer(**EsConfigFns.named_dict(self.an_config, 'inference'))
 
   def after_pass(self, context: dict, **kwargs):
     self.alignment.close()
@@ -172,6 +175,8 @@ class FaceDetectPass(BasePass):
     return context['labels']
 
   def process_data(self, data, context: dict, **kwargs):
+    pass_config = EsConfigFns.named_dict(self.an_config, 'face_pass')
+
     image_names = [f'{fid:05d}.jpg' for fid in data['fids']]
 
     results = []  # Inference results for each image
@@ -182,9 +187,9 @@ class FaceDetectPass(BasePass):
       result = self.inferencer.run(self.model, self.alignment, image)
 
       align_data = result.pop('align_data')
-      if result['success']:
+      if pass_config['run_facenet'] and result['success']:
         patch = aligned_face(image, **align_data)
-        patch_path = osp.join(self.pass_folder, image_name)
+        patch_path = osp.join(self.facenet_folder, image_name)
         cv2.imwrite(patch_path, patch)
 
       results.append(result)

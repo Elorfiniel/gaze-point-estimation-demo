@@ -1,5 +1,5 @@
 from .base_pass import BasePass
-from .mp_pass import FaceDetectPass
+from .face_pass import FaceDetectPass
 from .io_pass import LoadLabelsPass
 
 from runtime.es_config import EsConfig, EsConfigFns
@@ -11,8 +11,8 @@ import os.path as osp
 
 
 IMPLEMENTED_PASSES = [
-  LoadLabelsPass,
   FaceDetectPass,
+  LoadLabelsPass,
   # Add other passes here as needed
 ]
 
