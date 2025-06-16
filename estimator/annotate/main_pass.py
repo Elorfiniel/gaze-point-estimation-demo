@@ -20,16 +20,19 @@ class MainEntryPass(BasePass):
     self.recording_path = recording_path
     self.an_config = an_config
 
-  def after_pass(self):
+  def before_pass(self, **kwargs):
+    self.rt_context = dict() # Context for intermediate results
+
+  def after_pass(self, **kwargs):
     rt_logger = runtime_logger(name='annotator').getChild('messages')
     rt_logger.info(f'finished processing for recording "{self.recording_path}"')
 
-  def collect_data(self):
+  def collect_data(self, **kwargs):
     pass_config = EsConfigFns.named_dict(self.an_config, 'main_pass')
     return (self.PASSES[p] for p in pass_config['passes'])
 
-  def process_data(self, data: BasePass):
-    data(self.recording_path, self.an_config).run()
+  def process_data(self, data: BasePass, **kwargs):
+    data(self.recording_path, self.an_config).run(context=self.rt_context)
 
 
 class ParallelEntryPass(BasePass):
@@ -38,14 +41,14 @@ class ParallelEntryPass(BasePass):
     self.recordings = recordings
     self.an_config = an_config
 
-  def before_pass(self):
+  def before_pass(self, **kwargs):
     pass_config = EsConfigFns.named_dict(self.an_config, 'main_pass')
     self.executor = futures.ProcessPoolExecutor(max_workers=pass_config['num_workers'])
 
-  def after_pass(self):
+  def after_pass(self, **kwargs):
     self.executor.shutdown(wait=True)
 
-  def collect_data(self):
+  def collect_data(self, **kwargs):
     def task_generator():
       for recording in self.recordings:
         args = (osp.join(self.record_path, recording), self.an_config)
@@ -53,6 +56,6 @@ class ParallelEntryPass(BasePass):
 
     return task_generator()
 
-  def process_data(self, data: FunctionalTask):
+  def process_data(self, data: FunctionalTask, **kwargs):
     rt_logger = runtime_logger(name='annotator').getChild('parallel')
     submit_functional_task(data, self.executor, rt_logger)
