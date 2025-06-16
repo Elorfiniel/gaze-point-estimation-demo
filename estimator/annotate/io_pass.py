@@ -1,9 +1,21 @@
 from .base_pass import BasePass
 
-from runtime.es_config import EsConfig
+from runtime.es_config import EsConfig, EsConfigFns
+from runtime.miscellaneous import deep_update
 
 import json
 import os.path as osp
+
+
+class LoadContextPass(BasePass):
+
+  PASS_NAME = 'io_pass.load_context'
+
+  def __init__(self, recording_path: str, an_config: EsConfig):
+    self.context = EsConfigFns.named_dict(an_config, 'io_pass')
+
+  def run(self, context: dict, **kwargs):
+    deep_update(context, self.context, inplace=True)
 
 
 class LoadLabelsPass(BasePass):

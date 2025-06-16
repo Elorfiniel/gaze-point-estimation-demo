@@ -1,6 +1,6 @@
 from .base_pass import BasePass
 from .face_pass import FaceDetectPass
-from .io_pass import LoadLabelsPass
+from .io_pass import LoadContextPass, LoadLabelsPass
 
 from runtime.es_config import EsConfig, EsConfigFns
 from runtime.log import runtime_logger
@@ -12,6 +12,7 @@ import os.path as osp
 
 IMPLEMENTED_PASSES = [
   FaceDetectPass,
+  LoadContextPass,
   LoadLabelsPass,
   # Add other passes here as needed
 ]
