@@ -1,4 +1,4 @@
-from annotate.passes import MainPass
+from annotate.main_pass import ParallelEntryPass
 
 from runtime.es_config import EsConfig, EsConfigFns
 from runtime.miscellaneous import deep_update
@@ -44,7 +44,7 @@ def collect_an_config(cmdargs: argparse.Namespace):
 def main_procedure(cmdargs: argparse.Namespace):
   record_path, recordings = collect_recordings(cmdargs)
   an_config = collect_an_config(cmdargs)
-  MainPass(record_path, recordings, an_config).run()
+  ParallelEntryPass(record_path, recordings, an_config).run()
 
 
 if __name__ == '__main__':
