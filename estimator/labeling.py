@@ -1,5 +1,5 @@
 from label.labels import LabelLoop, LabelPass
-from label.parallel import FunctionalTask, run_parallel
+from runtime.parallel import FunctionalTask, run_parallel
 from label.preview import *
 
 from runtime.es_config import EsConfig, EsConfigFns
