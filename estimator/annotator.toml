@@ -1,0 +1,10 @@
+# Configuration file for the PoG Annotator
+
+# Main Pass Config
+#  1. Parallel processing configuration
+[main_pass]
+num_workers = 4
+
+# Recording Pass Config
+[recording_pass]
+passes = []
