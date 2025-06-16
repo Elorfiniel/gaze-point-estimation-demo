@@ -6,4 +6,5 @@
 num_workers = 4
 run_passes = [
   'io_pass.load_labels',
+  'mp_pass.face_detect',
 ]

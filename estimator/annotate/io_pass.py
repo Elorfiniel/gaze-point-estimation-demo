@@ -14,7 +14,7 @@ class LoadLabelsPass(BasePass):
     self.recording_path = recording_path
     self.an_config = an_config
 
-  def run(self, context, **kwargs):
+  def run(self, context: dict, **kwargs):
     json_path = osp.join(self.recording_path, 'labels.json')
     with open(json_path, 'r') as json_file:
       labels = json.load(json_file)
