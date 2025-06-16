@@ -1,4 +1,7 @@
 class BasePass:
+
+  PASS_NAME = 'base_pass'
+
   def before_pass(self, **kwargs):
     '''Hook: called before the pass starts processing any data.'''
     pass

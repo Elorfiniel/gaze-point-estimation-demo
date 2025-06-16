@@ -4,4 +4,6 @@
 #  1. Parallel processing configuration
 [main_pass]
 num_workers = 4
-passes = []
+run_passes = [
+  'io_pass.load_labels',
+]

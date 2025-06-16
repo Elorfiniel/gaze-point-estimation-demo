@@ -1,4 +1,5 @@
 from .base_pass import BasePass
+from .io_pass import LoadLabelsPass
 
 from runtime.es_config import EsConfig, EsConfigFns
 from runtime.log import runtime_logger
@@ -8,9 +9,17 @@ import concurrent.futures as futures
 import os.path as osp
 
 
+IMPLEMENTED_PASSES = [
+  LoadLabelsPass,
+  # Add other passes here as needed
+]
+
+
 class MainEntryPass(BasePass):
 
-  PASSES = dict()
+  PASS_NAME = 'main_pass.main_entry'
+
+  PASSES = {P.PASS_NAME:P for P in IMPLEMENTED_PASSES}
 
   @staticmethod
   def process(recording_path: str, an_config: EsConfig):
@@ -29,13 +38,16 @@ class MainEntryPass(BasePass):
 
   def collect_data(self, **kwargs):
     pass_config = EsConfigFns.named_dict(self.an_config, 'main_pass')
-    return (self.PASSES[p] for p in pass_config['passes'])
+    return (self.PASSES[p] for p in pass_config['run_passes'])
 
   def process_data(self, data: BasePass, **kwargs):
     data(self.recording_path, self.an_config).run(context=self.rt_context)
 
 
 class ParallelEntryPass(BasePass):
+
+  PASS_NAME = 'main_pass.parallel_entry'
+
   def __init__(self, record_path: str, recordings: list, an_config: EsConfig):
     self.record_path = record_path
     self.recordings = recordings
