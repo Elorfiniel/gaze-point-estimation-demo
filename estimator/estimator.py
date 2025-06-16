@@ -2,6 +2,7 @@ from runtime.captures import VideoCaptureBuilder, CaptureHandler
 from runtime.es_config import EsConfig, EsConfigFns
 from runtime.facealign import FaceAlignment
 from runtime.inference import Inferencer
+from runtime.log import runtime_logger
 from runtime.pipeline import load_model
 from runtime.preview import *
 from runtime.server import http_server, websocket_server
@@ -13,7 +14,6 @@ import asyncio
 import cv2
 import functools
 import json
-import logging
 import multiprocessing as mp
 import numpy as np
 import os.path as osp
@@ -21,6 +21,9 @@ import queue
 import threading
 import webbrowser
 import websockets
+
+
+rt_logger = runtime_logger(name='estimator')
 
 
 class PreviewFrameConsumer:
@@ -341,7 +344,7 @@ def entry_server_mode(config_path):
   game_url = 'http://{host}:{port}/demo.html'.format(**http_server_addr)
   if EsConfigFns.open_browser(es_config):
     webbrowser.open(game_url, new=2, autoraise=True)
-  logging.info(f'serving eye shooting game on {game_url}')
+  rt_logger.info(f'serving eye shooting game on {game_url}')
 
   ws_handler = functools.partial(websocket_handler, es_config=es_config)
   run_websocket_server(ws_handler, httpd, **ws_server_addr)
@@ -375,13 +378,6 @@ MAIN_ENTRIES = dict(preview=entry_preview_mode, server=entry_server_mode)
 
 
 
-def configure_logging(level=logging.INFO, force=False):
-  logging.basicConfig(
-    level=level, force=force,
-    format='[ %(asctime)s ] process %(process)d - %(levelname)s: %(message)s',
-    datefmt='%m-%d %H:%M:%S',
-  )
-
 def main_procedure(cmdargs: argparse.Namespace):
   entry = MAIN_ENTRIES.get(cmdargs.mode, None)
   config_path = osp.abspath(cmdargs.config)
@@ -397,5 +393,4 @@ if __name__ == '__main__':
   parser.add_argument('--mode', type=str, default='server', choices=['server', 'preview'],
                       help='The mode to run the PoG estimator. Default is server.')
 
-  configure_logging(logging.INFO, force=True)
   main_procedure(parser.parse_args())

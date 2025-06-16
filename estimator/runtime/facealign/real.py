@@ -5,10 +5,14 @@
 # Commit: 8797c10abcf35165cb2ffc0c6a46a72b684e7eb4
 # Author: Elorfiniel (markgenthusiastic@gmail.com)
 
+from ..log import runtime_logger
+
 import mediapipe as mp
 import numpy as np
 import cv2 as cv2
-import logging
+
+
+rt_logger = runtime_logger(name='runtime').getChild('facealign')
 
 
 # Commonly used landmarks detected by mediapipe face mesh
@@ -100,7 +104,7 @@ class FaceAlignment():
 
     # TODO: Add support for multiple faces in one image
     if max_num_faces != 1:
-      logging.warning("currently, multiple faces are not supported")
+      rt_logger.warning(f"currently, multiple faces ({max_num_faces}) are not supported")
       self._max_num_faces = 1
 
     self._face_mesh = mp.solutions.face_mesh.FaceMesh(

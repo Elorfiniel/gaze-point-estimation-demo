@@ -1,8 +1,12 @@
+from .log import runtime_logger
+
 import cv2  # OpenCV-Python
 import datetime
 import json
-import logging
 import os
+
+
+rt_logger = runtime_logger(name='runtime').getChild('storage')
 
 
 def _dump_json(json_data, json_path):
@@ -56,9 +60,9 @@ class RecordingManager():
 
     try:
       os.makedirs(self.root, exist_ok=True)
-      logging.info(f'recording root folder "{self.root}" created')
+      rt_logger.info(f'recording root folder "{self.root}" created')
     except Exception as ex:
-      logging.warning(f'cannot make root directory "{self.root}", due to {ex}')
+      rt_logger.warning(f'cannot make root directory "{self.root}", due to {ex}')
 
   def new_recording(self, folder=''):
     self.folder = folder or datetime.datetime.now().strftime('%m-%d-%Y-%H-%M-%S')
@@ -71,7 +75,7 @@ class RecordingManager():
     try:
       os.makedirs(folder_path, exist_ok=True)
     except Exception as ex:
-      logging.warning(f'cannot make recording folder "{folder_path}", due to {ex}')
+      rt_logger.warning(f'cannot make recording folder "{folder_path}", due to {ex}')
 
   def new_target(self, tid, lx, ly):
     self.targets.append(dict(tid=tid, lx=lx, ly=ly, fids=[]))
@@ -90,7 +94,7 @@ class RecordingManager():
         buffer.tofile(frame_path)
         self.new_frame()
     except Exception as ex:
-      logging.warning(f'cannot save frame to path "{frame_path}", due to {ex}')
+      rt_logger.warning(f'cannot save frame to path "{frame_path}", due to {ex}')
 
   def save_label(self):
     label_path = os.path.join(self.root, self.folder, 'labels.json')

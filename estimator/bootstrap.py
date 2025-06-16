@@ -8,20 +8,20 @@ if __name__ == '__main__':
 
 from runtime.bundle import is_running_in_bundle, get_bundled_path
 from runtime.es_config import EsConfig, EsConfigFns
+from runtime.log import runtime_logger
 from runtime.server import http_server
 
-from estimator import (
-  configure_logging, websocket_handler,
-  run_http_server, run_websocket_server,
-)
+from estimator import websocket_handler, run_http_server, run_websocket_server
 
 import argparse
 import functools
-import logging
 import os.path as osp
 import sys
 import threading
 import webbrowser
+
+
+rt_logger = runtime_logger(name='estimator')
 
 
 def entry_server_mode(config_updater_path):
@@ -44,7 +44,7 @@ def entry_server_mode(config_updater_path):
   game_url = 'http://{host}:{port}/demo.html'.format(**http_server_addr)
   if EsConfigFns.open_browser(es_config):
     webbrowser.open(game_url, new=2, autoraise=True)
-  logging.info(f'serving eye shooting game on {game_url}')
+  rt_logger.info(f'serving eye shooting game on {game_url}')
 
   ws_handler = functools.partial(websocket_handler, es_config=es_config)
   run_websocket_server(ws_handler, httpd, **ws_server_addr)
@@ -55,7 +55,7 @@ def entry_server_mode(config_updater_path):
 
 def main_procedure(cmdargs: argparse.Namespace):
   if not is_running_in_bundle():
-    logging.error('this script should only be run from the bundled app')
+    rt_logger.error('this script should only be run from the bundled app')
     sys.exit(1) # Exit the execution
 
   config_updater_path = osp.abspath(cmdargs.config)
@@ -69,5 +69,4 @@ if __name__ == '__main__':
   parser.add_argument('--config', type=str, default='config.toml',
                       help='Device-specific configuration for this PoG estimator.')
 
-  configure_logging(logging.INFO, force=True)
   main_procedure(parser.parse_args())

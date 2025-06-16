@@ -1,8 +1,12 @@
+from .log import runtime_logger
+
 import copy
-import logging
 import json
 import os
 import toml
+
+
+rt_logger = runtime_logger(name='runtime').getChild('miscellaneous')
 
 
 def load_toml_secure(toml_path, allow_pickle=True):
@@ -18,7 +22,7 @@ def load_toml_secure(toml_path, allow_pickle=True):
         toml_data = None
 
   if toml_data is None:
-    logging.error(f'cannot load from TOML file "{toml_path}"')
+    rt_logger.error(f'cannot load from TOML file "{toml_path}"')
 
   if toml_data is not None and allow_pickle:
     toml_data = json.loads(json.dumps(toml_data))
