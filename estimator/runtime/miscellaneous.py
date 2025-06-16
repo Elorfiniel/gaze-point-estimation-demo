@@ -29,14 +29,15 @@ def load_toml_secure(toml_path, allow_pickle=True):
 
   return toml_data
 
-def deep_update(target_dict: dict, new_dict: dict):
+def deep_update(target_dict: dict, new_dict: dict, inplace: bool = False):
   '''Deeply update a dictionary with another dictionary.'''
 
-  target_dict = copy.deepcopy(target_dict)
+  if not inplace:
+    target_dict = copy.deepcopy(target_dict)
 
   for key, value in new_dict.items():
     if key in target_dict and isinstance(target_dict[key], dict) and isinstance(value, dict):
-      target_dict[key] = deep_update(target_dict[key], value)
+      target_dict[key] = deep_update(target_dict[key], value, inplace)
     else:
       target_dict[key] = value
 
