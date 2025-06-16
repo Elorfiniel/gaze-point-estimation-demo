@@ -302,7 +302,6 @@ async def websocket_handler(websocket, stop_future, es_config: EsConfig):
   clean_up_context(context)
 
 
-
 def run_http_server(httpd):
   '''Http server thread that runs the preconfigured http server.'''
 
@@ -323,7 +322,6 @@ def run_websocket_server(ws_handler, httpd, host, port):
     pass  # Ignore traceback if no websocket handler is running
 
   httpd.shutdown()
-
 
 
 def entry_server_mode(config_path):
@@ -374,15 +372,14 @@ def entry_preview_mode(config_path):
     capture_handler = CaptureHandler(capture_builder, consumer)
     capture_handler.main_loop(pipeline=pipeline)
 
-MAIN_ENTRIES = dict(preview=entry_preview_mode, server=entry_server_mode)
 
+MAIN_ENTRIES = dict(preview=entry_preview_mode, server=entry_server_mode)
 
 
 def main_procedure(cmdargs: argparse.Namespace):
   entry = MAIN_ENTRIES.get(cmdargs.mode, None)
   config_path = osp.abspath(cmdargs.config)
   if entry is not None: entry(config_path)
-
 
 
 if __name__ == '__main__':

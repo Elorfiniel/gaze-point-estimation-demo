@@ -52,7 +52,6 @@ def entry_server_mode(config_updater_path):
   http_thread.join()
 
 
-
 def main_procedure(cmdargs: argparse.Namespace):
   if not is_running_in_bundle():
     rt_logger.error('this script should only be run from the bundled app')
@@ -60,7 +59,6 @@ def main_procedure(cmdargs: argparse.Namespace):
 
   config_updater_path = osp.abspath(cmdargs.config)
   entry_server_mode(config_updater_path)
-
 
 
 if __name__ == '__main__':
