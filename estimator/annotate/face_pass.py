@@ -1,4 +1,5 @@
 from .base_pass import BasePass
+from .miscellaneous import require_context
 
 from runtime.es_config import EsConfig, EsConfigFns
 from runtime.facealign import FaceAlignment
@@ -11,12 +12,6 @@ import numpy as np
 import os
 import os.path as osp
 import onnxruntime
-
-
-def requirex_context(bpass: BasePass, context: dict, item_names: list):
-  for item_name in item_names:
-    if context.get(item_name) is None:
-      raise RuntimeError(f'{bpass.PASS_NAME} requires "{item_name}" in context')
 
 
 def alignd_rotate(image: np.ndarray, landmarks: np.ndarray, theta: float):
@@ -208,7 +203,7 @@ class FaceDetectPass(BasePass):
     data['pogs'] = [r['pog_cam'] for r in results]
 
   def run(self, context: dict, **kwargs):
-    requirex_context(self, context, ['labels'])
+    require_context(self, context, ['labels'])
     super().run(context=context, **kwargs)
 
 
@@ -240,5 +235,5 @@ class FaceEmbeddingPass(BasePass):
     context['face_embedding'][data] = embed
 
   def run(self, context: dict, **kwargs):
-    requirex_context(self, context, ['facenet_folder'])
+    require_context(self, context, ['facenet_folder'])
     super().run(context=context, **kwargs)
