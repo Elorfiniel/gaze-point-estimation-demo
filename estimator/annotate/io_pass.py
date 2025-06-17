@@ -12,10 +12,11 @@ class LoadContextPass(BasePass):
   PASS_NAME = 'io_pass.load_context'
 
   def __init__(self, recording_path: str, an_config: EsConfig):
-    self.context = EsConfigFns.named_dict(an_config, 'io_pass')
+    self.an_config = an_config
 
   def run(self, context: dict, **kwargs):
-    deep_update(context, self.context, inplace=True)
+    pass_config = EsConfigFns.named_dict(self.an_config, 'io_pass')
+    deep_update(context, pass_config['context'], inplace=True)
 
 
 class LoadLabelsPass(BasePass):
