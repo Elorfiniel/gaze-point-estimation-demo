@@ -1,18 +1,23 @@
 # Configuration file for the PoG Annotator
 
 # Main Pass Config
-#  1. Parallel processing configuration
 [main_pass]
 num_workers = 4
 run_passes = [
   'io_pass.load_labels',
   'face_pass.face_detect',
-  'face_pass.embedding',
+  'okay_pass.local_outlier',
+  'vis_pass.visualize',
 ]
 
 # Face Pass Config
 [face_pass]
 run_facenet = true
+
+# Okay Pass Config
+[okay_pass]
+min_samples = 4
+nn_ratio = 0.4
 
 # Visualize Pass Config
 [vis_pass]
