@@ -35,7 +35,7 @@ Now, you'll have the environment properly setup.
 
 ### Download Resources
 
-Follow instructions in `estimator/checkpoint/README.md` (for ONNX model) and `sketch/assets/README.md` (for font file) to download the required resources before running the demo.
+Follow instructions in `estimator/checkpoint/README.md` (for ONNX model), `sketch/assets/README.md` (for font file) and `estimator/resources/README.md` (for optional external resources) to download or prepare the required resources before running the demo.
 
 ### Run the Demo
 
