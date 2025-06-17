@@ -10,6 +10,13 @@ import cv2
 import numpy as np
 import os
 import os.path as osp
+import onnxruntime
+
+
+def requirex_context(bpass: BasePass, context: dict, item_names: list):
+  for item_name in item_names:
+    if context.get(item_name) is None:
+      raise RuntimeError(f'{bpass.PASS_NAME} requires "{item_name}" in context')
 
 
 def alignd_rotate(image: np.ndarray, landmarks: np.ndarray, theta: float):
@@ -92,6 +99,12 @@ def aligned_face(image: np.ndarray, landmarks: np.ndarray, theta: float):
 
   return face_patch
 
+def embeded_face(image: np.ndarray, model: onnxruntime.InferenceSession):
+  ort_ipt = np.transpose(image, (2, 0, 1)).astype(np.float32)
+  ort_ipt = np.expand_dims((ort_ipt - 127.5) / 128.0, axis=0)
+  ort_opt = np.squeeze(model.run(None, {'img': ort_ipt})[0])
+  return ort_opt
+
 
 class MediaPipeInferencer(Inferencer):
 
@@ -153,9 +166,6 @@ class FaceDetectPass(BasePass):
   def before_pass(self, context: dict, **kwargs):
     pass_config = EsConfigFns.named_dict(self.an_config, 'face_pass')
 
-    if context.get('labels') is None:
-      raise RuntimeError(f'{self.PASS_NAME} requires "labels" in context')
-
     if pass_config['run_facenet']:
       self.facenet_folder = osp.join(self.recording_path, 'facenet')
       context['facenet_folder'] = self.facenet_folder
@@ -196,3 +206,39 @@ class FaceDetectPass(BasePass):
 
     data['face'] = [r['success'] for r in results]
     data['pogs'] = [r['pog_cam'] for r in results]
+
+  def run(self, context: dict, **kwargs):
+    requirex_context(self, context, ['labels'])
+    super().run(context=context, **kwargs)
+
+
+class FaceEmbeddingPass(BasePass):
+
+  PASS_NAME = 'face_pass.embedding'
+
+  def __init__(self, recording_path: str, an_config: EsConfig):
+    self.recording_path = recording_path
+    self.an_config = an_config
+
+  def before_pass(self, context: dict, **kwargs):
+    self.facenet_folder = context['facenet_folder']
+    context['face_embedding'] = dict()
+
+    config_path = EsConfigFns.get_config_path(self.an_config)
+    model_path = osp.join('resources', 'facenet.onnx')
+    self.model = load_model(config_path, model_path)
+
+  def collect_data(self, context: dict, **kwargs):
+    image_names = os.listdir(self.facenet_folder)
+    image_names.sort(reverse=False)
+    return image_names
+
+  def process_data(self, data, context: dict, **kwargs):
+    image_path = osp.join(self.facenet_folder, data)
+    image = cv2.imread(image_path, cv2.IMREAD_UNCHANGED)
+    embed = embeded_face(image, self.model)
+    context['face_embedding'][data] = embed
+
+  def run(self, context: dict, **kwargs):
+    requirex_context(self, context, ['facenet_folder'])
+    super().run(context=context, **kwargs)

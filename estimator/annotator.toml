@@ -7,6 +7,7 @@ num_workers = 4
 run_passes = [
   'io_pass.load_labels',
   'face_pass.face_detect',
+  'face_pass.embedding',
 ]
 
 # Face Pass Config
