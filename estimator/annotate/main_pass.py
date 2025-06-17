@@ -1,6 +1,7 @@
 from .base_pass import BasePass
 from .face_pass import FaceDetectPass, FaceEmbeddingPass
 from .io_pass import LoadContextPass, LoadLabelsPass
+from .vis_pass import VisualizePass
 
 from runtime.es_config import EsConfig, EsConfigFns
 from runtime.log import runtime_logger
@@ -15,6 +16,7 @@ IMPLEMENTED_PASSES = [
   LoadLabelsPass,
   FaceDetectPass,
   FaceEmbeddingPass,
+  VisualizePass,
   # Add other passes here as needed
 ]
 

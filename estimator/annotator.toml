@@ -13,3 +13,9 @@ run_passes = [
 # Face Pass Config
 [face_pass]
 run_facenet = true
+
+# Visualize Pass Config
+[vis_pass]
+figsize = [13, 6]
+subplots_adjust = { left = 0.08, right = 0.90 }
+limits = { x = [-20.0, 20.0], y = [-20.0, 0.0] }
