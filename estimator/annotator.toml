@@ -5,8 +5,8 @@
 [main_pass]
 num_workers = 4
 run_passes = [
-  'face_pass.face_detect',
   'io_pass.load_labels',
+  'face_pass.face_detect',
 ]
 
 # Face Pass Config
