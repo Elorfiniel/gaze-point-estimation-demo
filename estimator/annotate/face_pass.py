@@ -253,7 +253,7 @@ class FacePurifyPass(BasePass):
 
     name_to_embed = context['face_embedding']
     embeds = np.stack([name_to_embed[n] for n in name_to_embed], axis=0)
-    cluster = skc.DBSCAN(**pass_config['purify_via_dbscan']).fit(embeds)
+    cluster = skc.DBSCAN(**pass_config['purify_with_dbscan']).fit(embeds)
 
     face_labels = cluster.labels_
     unique_labels, counts = np.unique(
