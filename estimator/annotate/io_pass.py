@@ -3,7 +3,6 @@ from .miscellaneous import load_json
 
 from runtime.es_config import EsConfig
 
-import json
 import os.path as osp
 
 

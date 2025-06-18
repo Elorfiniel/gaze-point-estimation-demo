@@ -6,6 +6,8 @@ num_workers = 4
 run_passes = [
   'mgmt_pass.reorganize_folder',
   'io_pass.load_targets',
+  'data_pass.load_samples',
+  'data_pass.save_samples',
 ]
 
 # Face Pass Config
