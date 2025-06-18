@@ -186,7 +186,6 @@ class FaceDetectPass(BasePass):
 
   def __init__(self, recording_path: str, an_config: EsConfig):
     self.recording_path = recording_path
-
     self.pass_config = EsConfigFns.named_dict(an_config, 'face_pass')
 
     self.model_config_path = EsConfigFns.get_config_path(an_config)

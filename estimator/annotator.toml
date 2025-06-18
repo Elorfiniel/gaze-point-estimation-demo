@@ -13,7 +13,6 @@ run_passes = [
 
 # Face Pass Config
 [face_pass]
-crop_detected_face = true
 purify_with_dbscan = { metric = 'cosine', eps = 0.12, min_samples = 8 }
 
 # Okay Pass Config
