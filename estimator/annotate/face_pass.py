@@ -12,6 +12,7 @@ import numpy as np
 import os
 import os.path as osp
 import onnxruntime
+import sklearn.cluster as skc
 
 
 def alignd_rotate(image: np.ndarray, landmarks: np.ndarray, theta: float):
@@ -236,4 +237,51 @@ class FaceEmbeddingPass(BasePass):
 
   def run(self, context: dict, **kwargs):
     require_context(self, context, ['face_folder'])
+    super().run(context=context, **kwargs)
+
+
+class FacePurifyPass(BasePass):
+
+  PASS_NAME = 'face_pass.face_purify'
+
+  def __init__(self, recording_path: str, an_config: EsConfig):
+    self.recording_path = recording_path
+    self.an_config = an_config
+
+  def before_pass(self, context: dict, **kwargs):
+    pass_config = EsConfigFns.named_dict(self.an_config, 'face_pass')
+
+    name_to_embed = context['face_embedding']
+    embeds = np.stack([name_to_embed[n] for n in name_to_embed], axis=0)
+    cluster = skc.DBSCAN(**pass_config['purify_via_dbscan']).fit(embeds)
+
+    face_labels = cluster.labels_
+    unique_labels, counts = np.unique(
+      face_labels[face_labels != -1],
+      return_counts=True,
+    )
+
+    self.face_label = unique_labels[np.argmax(counts)]
+    self.name_to_label = {n:l for n, l in zip(name_to_embed, face_labels)}
+
+  def collect_data(self, context: dict, **kwargs):
+    return context['labels']
+
+  def process_data(self, data, context: dict, **kwargs):
+    image_names = [f'{fid:05d}.jpg' for fid in data['fids']]
+
+    results = []  # Purify results for each image
+    for image_name in image_names:
+      if image_name not in self.name_to_label:
+        is_face_pure = False
+      else:
+        label = self.name_to_label[image_name]
+        is_face_pure = label == self.face_label
+
+      results.append(is_face_pure)
+
+    data['face'] = results
+
+  def run(self, context: dict, **kwargs):
+    require_context(self, context, ['labels', 'face_embedding'])
     super().run(context=context, **kwargs)

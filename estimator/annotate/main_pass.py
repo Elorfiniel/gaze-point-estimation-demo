@@ -1,5 +1,5 @@
 from .base_pass import BasePass
-from .face_pass import FaceDetectPass, FaceEmbeddingPass
+from .face_pass import FaceDetectPass, FaceEmbeddingPass, FacePurifyPass
 from .io_pass import LoadContextPass, LoadLabelsPass
 from .okay_pass import LocalOutlierPass
 from .vis_pass import VisualizePass
@@ -17,6 +17,7 @@ IMPLEMENTED_PASSES = [
   LoadLabelsPass,
   FaceDetectPass,
   FaceEmbeddingPass,
+  FacePurifyPass,
   LocalOutlierPass,
   VisualizePass,
   # Add other passes here as needed
