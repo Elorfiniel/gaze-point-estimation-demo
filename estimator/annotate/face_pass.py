@@ -161,10 +161,10 @@ class FaceDetectPass(BasePass):
   def before_pass(self, context: dict, **kwargs):
     pass_config = EsConfigFns.named_dict(self.an_config, 'face_pass')
 
-    if pass_config['run_facenet']:
-      self.facenet_folder = osp.join(self.recording_path, 'facenet')
-      context['facenet_folder'] = self.facenet_folder
-      os.makedirs(self.facenet_folder, exist_ok=True)
+    if pass_config['crop_detected_face']:
+      self.face_folder = osp.join(self.recording_path, 'detected-faces')
+      context['face_folder'] = self.face_folder
+      os.makedirs(self.face_folder, exist_ok=True)
 
     config_path = EsConfigFns.get_config_path(self.an_config)
     self.model = load_model(config_path, **EsConfigFns.named_dict(self.an_config, 'checkpoint'))
@@ -192,9 +192,9 @@ class FaceDetectPass(BasePass):
       result = self.inferencer.run(self.model, self.alignment, image)
 
       align_data = result.pop('align_data')
-      if pass_config['run_facenet'] and result['success']:
+      if pass_config['crop_detected_face'] and result['success']:
         patch = aligned_face(image, **align_data)
-        patch_path = osp.join(self.facenet_folder, image_name)
+        patch_path = osp.join(self.face_folder, image_name)
         cv2.imwrite(patch_path, patch)
 
       results.append(result)
@@ -216,7 +216,7 @@ class FaceEmbeddingPass(BasePass):
     self.an_config = an_config
 
   def before_pass(self, context: dict, **kwargs):
-    self.facenet_folder = context['facenet_folder']
+    self.face_folder = context['face_folder']
     context['face_embedding'] = dict()
 
     config_path = EsConfigFns.get_config_path(self.an_config)
@@ -224,16 +224,16 @@ class FaceEmbeddingPass(BasePass):
     self.model = load_model(config_path, model_path)
 
   def collect_data(self, context: dict, **kwargs):
-    image_names = os.listdir(self.facenet_folder)
+    image_names = os.listdir(self.face_folder)
     image_names.sort(reverse=False)
     return image_names
 
   def process_data(self, data, context: dict, **kwargs):
-    image_path = osp.join(self.facenet_folder, data)
+    image_path = osp.join(self.face_folder, data)
     image = cv2.imread(image_path, cv2.IMREAD_UNCHANGED)
     embed = embeded_face(image, self.model)
     context['face_embedding'][data] = embed
 
   def run(self, context: dict, **kwargs):
-    require_context(self, context, ['facenet_folder'])
+    require_context(self, context, ['face_folder'])
     super().run(context=context, **kwargs)

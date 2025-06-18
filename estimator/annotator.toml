@@ -12,7 +12,7 @@ run_passes = [
 
 # Face Pass Config
 [face_pass]
-run_facenet = true
+crop_detected_face = true
 
 # Okay Pass Config
 [okay_pass]
