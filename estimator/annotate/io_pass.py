@@ -1,7 +1,6 @@
 from .base_pass import BasePass
 
-from runtime.es_config import EsConfig, EsConfigFns
-from runtime.miscellaneous import deep_update
+from runtime.es_config import EsConfig
 
 import json
 import os.path as osp

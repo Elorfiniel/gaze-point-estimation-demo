@@ -1,6 +1,6 @@
 from .base_pass import BasePass
 
-from runtime.es_config import EsConfig, EsConfigFns
+from runtime.es_config import EsConfig
 
 import os
 import os.path as osp
