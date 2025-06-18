@@ -1,5 +1,5 @@
 from .base_pass import BasePass
-from .miscellaneous import require_context
+from .miscellaneous import require_context, format_number
 
 from runtime.es_config import EsConfig, EsConfigFns
 from runtime.facealign import FaceAlignment
@@ -15,7 +15,31 @@ import onnxruntime
 import sklearn.cluster as skc
 
 
+def adjusted_mesh(image: np.ndarray, image_mp: np.ndarray, landmarks: np.ndarray):
+  '''Adjust face mesh to fit the original image, rather than the potentially rescaled one.'''
+
+  src_h, src_w, _ = image.shape
+  tgt_h, tgt_w, _ = image_mp.shape
+
+  src_asp = src_w / src_h
+  tgt_asp = tgt_w / tgt_h
+
+  if tgt_asp > src_asp:
+    rescale_h = int(src_w / tgt_asp)
+    mesh = landmarks * rescale_h / tgt_h
+    padding_h = (src_h - rescale_h) // 2
+    mesh[:, 1] += padding_h
+  if tgt_asp < src_asp:
+    rescale_w = int(src_h * tgt_asp)
+    mesh = landmarks * rescale_w / tgt_w
+    padding_w = (src_w - rescale_w) // 2
+    mesh[:, 0] += padding_w
+
+  return mesh
+
 def alignd_rotate(image: np.ndarray, landmarks: np.ndarray, theta: float):
+  '''Rotate image and landmarks according to alignment angle theta.'''
+
   image_h, image_w, _ = image.shape
 
   image_l = 2 * max(image_h, image_w)
@@ -45,11 +69,16 @@ def alignd_rotate(image: np.ndarray, landmarks: np.ndarray, theta: float):
   return image_rot, ldmks_rot
 
 def bounding_box(landmarks: np.ndarray):
+  '''Get the bounding box for these landmarks.'''
+
   x_min, y_min = np.min(landmarks, axis=0)
   x_max, y_max = np.max(landmarks, axis=0)
+
   return x_min, y_min, x_max, y_max
 
 def scaled_bbox(x_min, y_min, x_max, y_max, scale: float = 1.0):
+  '''Scale bounding box by the given factor wrt box center.'''
+
   x_mid = (x_min + x_max) / 2.0
   y_mid = (y_min + y_max) / 2.0
 
@@ -96,13 +125,16 @@ def aligned_face(image: np.ndarray, landmarks: np.ndarray, theta: float):
   return face_patch
 
 def embeded_face(image: np.ndarray, model: onnxruntime.InferenceSession):
+  '''Embed croped face image into 512-D vector, produced by FaceNet model.'''
+
   ort_ipt = np.transpose(image, (2, 0, 1)).astype(np.float32)
   ort_ipt = np.expand_dims((ort_ipt - 127.5) / 128.0, axis=0)
   ort_opt = np.squeeze(model.run(None, {'img': ort_ipt})[0])
+
   return ort_opt
 
 
-class MediaPipeInferencer(Inferencer):
+class MpInferencer(Inferencer):
 
   EXPECTED_LDMK_INDICES = np.array([
     122, 193, 55, 65, 52, 53, 46, 124, 35, 31, 228, 229, 230, 231, 232, 128, 245,
@@ -115,10 +147,10 @@ class MediaPipeInferencer(Inferencer):
     Returns a result dictionary with the following keys:
       success: bool, whether the inference was successful.
       pog_cam: non-filtered PoG (x, y) in camera coordinate frame.
-      ldmks: detected landmarks in the image.
+      mesh: the detected face mesh (478 landmarks).
     '''
 
-    result = dict(success=False, pog_cam=None, align_data=None)
+    result = dict(success=False, pog_cam=None, mesh=None)
 
     if to_rgb: image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
     landmarks, theta = align.process(image)
@@ -130,10 +162,7 @@ class MediaPipeInferencer(Inferencer):
         model, crops, norm_ldmks, theta,
         gx_filter=self.gx_filter, gy_filter=self.gy_filter,
       )
-      result.update(dict(
-        success=True, pog_cam=pog_cam.tolist(),
-        align_data=dict(landmarks=landmarks, theta=theta),
-      ))
+      result.update(success=True, pog_cam=pog_cam, mesh=landmarks)
 
     return result
 
@@ -157,54 +186,53 @@ class FaceDetectPass(BasePass):
 
   def __init__(self, recording_path: str, an_config: EsConfig):
     self.recording_path = recording_path
-    self.an_config = an_config
+
+    self.pass_config = EsConfigFns.named_dict(an_config, 'face_pass')
+
+    self.model_config_path = EsConfigFns.get_config_path(an_config)
+    self.checkpoint_cfg = EsConfigFns.named_dict(an_config, 'checkpoint')
+    self.transforms_cfg = EsConfigFns.named_dict(an_config, 'transform')
+    self.alignment_cfg = EsConfigFns.named_dict(an_config, 'alignment')
+    self.inferencer_cfg = EsConfigFns.named_dict(an_config, 'inference')
 
   def before_pass(self, context: dict, **kwargs):
-    pass_config = EsConfigFns.named_dict(self.an_config, 'face_pass')
+    self.model = load_model(self.model_config_path, **self.checkpoint_cfg)
 
-    if pass_config['crop_detected_face']:
-      self.face_folder = osp.join(self.recording_path, 'detected-faces')
-      context['face_folder'] = self.face_folder
-      os.makedirs(self.face_folder, exist_ok=True)
-
-    config_path = EsConfigFns.get_config_path(self.an_config)
-    self.model = load_model(config_path, **EsConfigFns.named_dict(self.an_config, 'checkpoint'))
-
-    self.transforms = Transforms(**EsConfigFns.named_dict(self.an_config, 'transform'))
-    self.alignment = FaceAlignment(**EsConfigFns.named_dict(self.an_config, 'alignment'))
-    self.inferencer = MediaPipeInferencer(**EsConfigFns.named_dict(self.an_config, 'inference'))
+    self.transforms = Transforms(**self.transforms_cfg)
+    self.alignment = FaceAlignment(**self.alignment_cfg)
+    self.inferencer = MpInferencer(**self.inferencer_cfg)
 
   def after_pass(self, context: dict, **kwargs):
     self.alignment.close()
 
   def collect_data(self, context: dict, **kwargs):
-    return context['labels']
+    return context['targets']
 
   def process_data(self, data, context: dict, **kwargs):
-    pass_config = EsConfigFns.named_dict(self.an_config, 'face_pass')
-
     image_names = [f'{fid:05d}.jpg' for fid in data['fids']]
 
-    results = []  # Inference results for each image
     for image_name in image_names:
-      image_path = osp.join(self.recording_path, image_name)
+      image_path = osp.join(self.recording_path, 'images', image_name)
       image = cv2.imread(image_path, cv2.IMREAD_UNCHANGED)
-      image = self.transforms.transform(image)
-      result = self.inferencer.run(self.model, self.alignment, image)
+      image_mp = self.transforms.transform(image)
+      result = self.inferencer.run(self.model, self.alignment, image_mp)
 
-      align_data = result.pop('align_data')
-      if pass_config['crop_detected_face'] and result['success']:
-        patch = aligned_face(image, **align_data)
-        patch_path = osp.join(self.face_folder, image_name)
-        cv2.imwrite(patch_path, patch)
+      if result['success']:
+        mesh = adjusted_mesh(image, image_mp, result['mesh'])
+        mesh_name = image_name.replace('.jpg', '.npy')
+        mesh_path = osp.join(self.recording_path, 'meshes', mesh_name)
+        np.save(mesh_path, np.round(mesh, decimals=4))
 
-      results.append(result)
+        pseudo_xy = format_number(result['pog_cam'])
+        update_dict = dict(face_mesh=True, pseudo_xy=pseudo_xy)
 
-    data['face'] = [r['success'] for r in results]
-    data['pogs'] = [r['pog_cam'] for r in results]
+      else:
+        update_dict = dict(face_mesh=False, pseudo_xy=[])
+
+      context['samples'][image_name].update(update_dict)
 
   def run(self, context: dict, **kwargs):
-    require_context(self, context, ['labels'])
+    require_context(self, context, ['targets', 'samples'])
     super().run(context=context, **kwargs)
 
 

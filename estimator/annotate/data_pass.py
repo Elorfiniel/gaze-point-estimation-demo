@@ -1,5 +1,5 @@
 from .base_pass import BasePass
-from .miscellaneous import require_context, dump_json
+from .miscellaneous import require_context, dump_json, format_number
 
 from runtime.es_config import EsConfig
 
@@ -21,11 +21,12 @@ class LoadSamplesPass(BasePass):
 
   def process_data(self, data, context: dict, **kwargs):
     image_names = [f'{fid:05d}.jpg' for fid in data['fids']]
+    target_xy = format_number([data['lx'], data['ly']])
 
     for image_name in image_names:
       context['samples'][image_name] = dict(
         target_id=data['tid'],
-        target_xy=[data['lx'], data['ly']],
+        target_xy=target_xy,
       )
 
   def run(self, context: dict, **kwargs):

@@ -25,6 +25,10 @@ class ReorganizeFolderPass(BasePass):
     labels_folder = osp.join(temp_folder, 'labels')
     os.makedirs(labels_folder, exist_ok=True)
 
+    # Create meshes folder for this recording
+    meshes_folder = osp.join(temp_folder, 'meshes')
+    os.makedirs(meshes_folder, exist_ok=True)
+
     labels_src_path = osp.join(self.recording_path, 'labels.json')
     labels_dst_path = osp.join(labels_folder, 'targets.json')
     shutil.move(labels_src_path, labels_dst_path)

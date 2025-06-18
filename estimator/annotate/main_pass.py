@@ -1,5 +1,6 @@
 from .base_pass import BasePass
 from .data_pass import LoadSamplesPass, SaveSamplesPass
+from .face_pass import FaceDetectPass
 from .io_pass import LoadTargetsPass
 from .mgmt_pass import ReorganizeFolderPass
 
@@ -14,6 +15,7 @@ import os.path as osp
 IMPLEMENTED_PASSES = [
   LoadSamplesPass,
   SaveSamplesPass,
+  FaceDetectPass,
   LoadTargetsPass,
   ReorganizeFolderPass,
   # Add other passes here as needed

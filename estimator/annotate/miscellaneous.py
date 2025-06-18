@@ -23,3 +23,7 @@ def dump_json(json_path: str, json_data: dict, **kwargs):
 
   with open(json_path, 'w') as json_file:
     json.dump(json_data, json_file, **kwargs)
+
+
+def format_number(numbers: list, ndigits: int = 4):
+  return [round(float(n), ndigits) for n in numbers]
