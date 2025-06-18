@@ -11,6 +11,10 @@ run_passes = [
   'data_pass.save_samples',
 ]
 
+# Data Pass Config
+[data_pass]
+refresh_samples = true
+
 # Face Pass Config
 [face_pass]
 purify_with_dbscan = { metric = 'cosine', eps = 0.12, min_samples = 8 }

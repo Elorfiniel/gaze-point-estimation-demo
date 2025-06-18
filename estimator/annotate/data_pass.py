@@ -1,7 +1,7 @@
 from .base_pass import BasePass
-from .miscellaneous import require_context, dump_json, format_number
+from .miscellaneous import require_context, dump_json, load_json, format_number
 
-from runtime.es_config import EsConfig
+from runtime.es_config import EsConfig, EsConfigFns
 
 import os.path as osp
 
@@ -11,10 +11,16 @@ class LoadSamplesPass(BasePass):
   PASS_NAME = 'data_pass.load_samples'
 
   def __init__(self, recording_path: str, an_config: EsConfig):
-    pass  # Use default template for all data samples
+    self.recording_path = recording_path
+    self.pass_config = EsConfigFns.named_dict(an_config, 'data_pass')
 
   def before_pass(self, context: dict, **kwargs):
     context['samples'] = dict()
+
+  def after_pass(self, context: dict, **kwargs):
+    json_path = osp.join(self.recording_path, 'labels', 'samples.json')
+    if not self.pass_config['refresh_samples'] and osp.exists(json_path):
+      context['samples'] = load_json(json_path)
 
   def collect_data(self, context: dict, **kwargs):
     return context['targets']
