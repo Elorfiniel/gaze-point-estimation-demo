@@ -37,6 +37,17 @@ def adjusted_mesh(image: np.ndarray, image_mp: np.ndarray, landmarks: np.ndarray
 
   return mesh
 
+def alignment_angle(landmarks: np.ndarray):
+  '''Get alignment angle for face mesh.'''
+
+  reye_icorner, leye_icorner = landmarks[133], landmarks[362]
+
+  delta_y = reye_icorner[1] - leye_icorner[1]
+  norm = np.linalg.norm(reye_icorner - leye_icorner)
+  theta = -np.rad2deg(np.arcsin(delta_y / norm))
+
+  return theta
+
 def alignd_rotate(image: np.ndarray, landmarks: np.ndarray, theta: float):
   '''Rotate image and landmarks according to alignment angle theta.'''
 
@@ -111,9 +122,10 @@ def scaled_crop(image: np.ndarray, bbox: tuple, size: tuple):
 
   return cv2.warpAffine(image, M, (crop_w, crop_h), flags=cv2.INTER_CUBIC)
 
-def aligned_face(image: np.ndarray, landmarks: np.ndarray, theta: float):
+def aligned_face(image: np.ndarray, landmarks: np.ndarray):
   '''Get aligned face patch of size 160x160 from the image for face recognition.'''
 
+  theta = alignment_angle(landmarks)
   image_rot, ldmks_rot = alignd_rotate(image, landmarks, theta)
 
   x_min, y_min, x_max, y_max = bounding_box(ldmks_rot)
@@ -235,35 +247,62 @@ class FaceDetectPass(BasePass):
     super().run(context=context, **kwargs)
 
 
-class FaceEmbeddingPass(BasePass):
+class FaceEmbedPass(BasePass):
 
-  PASS_NAME = 'face_pass.embedding'
+  PASS_NAME = 'face_pass.face_embed'
+
+  EMBED_DTYPE = [('image_name', 'U32'), ('embed', 'f4', (512, ))]
 
   def __init__(self, recording_path: str, an_config: EsConfig):
     self.recording_path = recording_path
-    self.an_config = an_config
+    self.pass_config = EsConfigFns.named_dict(an_config, 'face_pass')
+
+    self.model_config_path = EsConfigFns.get_config_path(an_config)
 
   def before_pass(self, context: dict, **kwargs):
-    self.face_folder = context['face_folder']
-    context['face_embedding'] = dict()
+    self.embeds_folder = osp.join(self.recording_path, 'embeds')
+    os.makedirs(self.embeds_folder, exist_ok=True)
 
-    config_path = EsConfigFns.get_config_path(self.an_config)
-    model_path = osp.join('resources', 'facenet.onnx')
-    self.model = load_model(config_path, model_path)
+    self.faces_folder = osp.join(self.embeds_folder, 'faces')
+    os.makedirs(self.faces_folder, exist_ok=True)
+
+    facenet_path = osp.join('resources', 'facenet.onnx')
+    self.facenet = load_model(self.model_config_path, facenet_path)
+
+    self.embeds = dict()  # Image -> Embedding
+
+  def after_pass(self, context: dict, **kwargs):
+    embeds = np.array([(n, e) for n, e in self.embeds.items()], dtype=self.EMBED_DTYPE)
+
+    embeds_path = osp.join(self.embeds_folder, 'embeds.npy')
+    np.save(embeds_path, embeds)
 
   def collect_data(self, context: dict, **kwargs):
-    image_names = os.listdir(self.face_folder)
-    image_names.sort(reverse=False)
-    return image_names
+    return context['targets']
 
   def process_data(self, data, context: dict, **kwargs):
-    image_path = osp.join(self.face_folder, data)
-    image = cv2.imread(image_path, cv2.IMREAD_UNCHANGED)
-    embed = embeded_face(image, self.model)
-    context['face_embedding'][data] = embed
+    image_names = [f'{fid:05d}.jpg' for fid in data['fids']]
+
+    for image_name in image_names:
+      sample_dict = context['samples'][image_name]
+      if not sample_dict['face_mesh']: continue
+
+      image_path = osp.join(self.recording_path, 'images', image_name)
+      image = cv2.imread(image_path, cv2.IMREAD_UNCHANGED)
+
+      mesh_name = image_name.replace('.jpg', '.npy')
+      mesh_path = osp.join(self.recording_path, 'meshes', mesh_name)
+      mesh = np.load(mesh_path)
+
+      face = aligned_face(image, mesh)
+      face_path = osp.join(self.faces_folder, image_name)
+      cv2.imwrite(face_path, face)
+
+      embed = embeded_face(face, self.facenet)
+      self.embeds[image_name] = embed
 
   def run(self, context: dict, **kwargs):
-    require_context(self, context, ['face_folder'])
+    require_context(self, context, ['targets', 'samples'])
     super().run(context=context, **kwargs)
 
 

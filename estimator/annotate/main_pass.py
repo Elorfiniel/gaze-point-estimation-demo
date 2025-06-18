@@ -1,6 +1,6 @@
 from .base_pass import BasePass
 from .data_pass import LoadSamplesPass, SaveSamplesPass
-from .face_pass import FaceDetectPass
+from .face_pass import FaceDetectPass, FaceEmbedPass
 from .io_pass import LoadTargetsPass
 from .mgmt_pass import ReorganizeFolderPass
 
@@ -16,6 +16,7 @@ IMPLEMENTED_PASSES = [
   LoadSamplesPass,
   SaveSamplesPass,
   FaceDetectPass,
+  FaceEmbedPass,
   LoadTargetsPass,
   ReorganizeFolderPass,
   # Add other passes here as needed
