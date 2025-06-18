@@ -19,16 +19,15 @@ class LoadContextPass(BasePass):
     deep_update(context, pass_config['context'], inplace=True)
 
 
-class LoadLabelsPass(BasePass):
+class LoadTargetsPass(BasePass):
 
-  PASS_NAME = 'io_pass.load_labels'
+  PASS_NAME = 'io_pass.load_targets'
 
   def __init__(self, recording_path: str, an_config: EsConfig):
     self.recording_path = recording_path
-    self.an_config = an_config
 
   def run(self, context: dict, **kwargs):
-    json_path = osp.join(self.recording_path, 'labels.json')
+    json_path = osp.join(self.recording_path, 'labels', 'targets.json')
     with open(json_path, 'r') as json_file:
-      labels = json.load(json_file)
-    context['labels'] = labels
+      targets = json.load(json_file)
+    context['targets'] = targets

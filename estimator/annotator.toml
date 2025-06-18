@@ -5,6 +5,7 @@
 num_workers = 4
 run_passes = [
   'mgmt_pass.reorganize_folder',
+  'io_pass.load_targets',
 ]
 
 # Face Pass Config

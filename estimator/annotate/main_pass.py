@@ -1,4 +1,5 @@
 from .base_pass import BasePass
+from .io_pass import LoadTargetsPass
 from .mgmt_pass import ReorganizeFolderPass
 
 from runtime.es_config import EsConfig, EsConfigFns
@@ -10,6 +11,7 @@ import os.path as osp
 
 
 IMPLEMENTED_PASSES = [
+  LoadTargetsPass,
   ReorganizeFolderPass,
   # Add other passes here as needed
 ]
