@@ -1,8 +1,5 @@
 from .base_pass import BasePass
-from .face_pass import FaceDetectPass, FaceEmbeddingPass, FacePurifyPass
-from .io_pass import LoadContextPass, LoadLabelsPass
-from .okay_pass import LocalOutlierPass
-from .vis_pass import VisualizePass
+from .mgmt_pass import ReorganizeFolderPass
 
 from runtime.es_config import EsConfig, EsConfigFns
 from runtime.log import runtime_logger
@@ -13,13 +10,7 @@ import os.path as osp
 
 
 IMPLEMENTED_PASSES = [
-  LoadContextPass,
-  LoadLabelsPass,
-  FaceDetectPass,
-  FaceEmbeddingPass,
-  FacePurifyPass,
-  LocalOutlierPass,
-  VisualizePass,
+  ReorganizeFolderPass,
   # Add other passes here as needed
 ]
 
