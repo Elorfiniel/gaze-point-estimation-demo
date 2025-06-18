@@ -1,4 +1,5 @@
 from .base_pass import BasePass
+from .miscellaneous import load_json
 
 from runtime.es_config import EsConfig
 
@@ -15,6 +16,4 @@ class LoadTargetsPass(BasePass):
 
   def run(self, context: dict, **kwargs):
     json_path = osp.join(self.recording_path, 'labels', 'targets.json')
-    with open(json_path, 'r') as json_file:
-      targets = json.load(json_file)
-    context['targets'] = targets
+    context['targets'] = load_json(json_path)
