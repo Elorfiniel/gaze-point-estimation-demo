@@ -28,7 +28,7 @@ class LocalOutlierPass(BasePass):
       pseudos = np.array(pseudos, dtype=np.float32)
 
       lof = skn.LocalOutlierFactor(
-        n_neighbors=max(int(pass_config['nn_ratio'] * len(pseudos)), 1),
+        n_neighbors=max(int(pass_config['p_neighbors'] * len(pseudos)), 1),
         contamination='auto',
       )
       lof_masks = lof.fit_predict(pseudos) == 1

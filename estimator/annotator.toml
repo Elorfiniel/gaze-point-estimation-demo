@@ -17,7 +17,7 @@ run_facenet = true
 # Okay Pass Config
 [okay_pass]
 min_samples = 4
-nn_ratio = 0.4
+p_neighbors = 0.4
 
 # Visualize Pass Config
 [vis_pass]
