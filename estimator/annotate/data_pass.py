@@ -10,8 +10,6 @@ class LoadSamplesPass(BasePass):
 
   PASS_NAME = 'data_pass.load_samples'
 
-  SAMPLE_TEMPLATE = dict()
-
   def __init__(self, recording_path: str, an_config: EsConfig):
     pass  # Use default template for all data samples
 
@@ -25,7 +23,10 @@ class LoadSamplesPass(BasePass):
     image_names = [f'{fid:05d}.jpg' for fid in data['fids']]
 
     for image_name in image_names:
-      context['samples'][image_name] = self.SAMPLE_TEMPLATE.copy()
+      context['samples'][image_name] = dict(
+        target_id=data['tid'],
+        target_xy=[data['lx'], data['ly']],
+      )
 
   def run(self, context: dict, **kwargs):
     require_context(self, context, ['targets'])
