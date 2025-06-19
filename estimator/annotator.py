@@ -56,7 +56,7 @@ if __name__ == '__main__':
 
   parser.add_argument('--config', type=str, default='estimator.toml',
                       help='Configuration for the PoG estimator.')
-  parser.add_argument('--annot-config', type=str, default='annotator.toml',
+  parser.add_argument('--annot-config', type=str, required=True,
                       help='Configuration for this PoG annotator.')
 
   main_procedure(parser.parse_args())

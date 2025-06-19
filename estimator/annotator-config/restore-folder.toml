@@ -1,0 +1,10 @@
+# Configuration file for the PoG Annotator (Example)
+#   This config restores the folder structure of the processed recordings
+#   after the pipeline, thus can be used to reverse the annot process
+
+# Main Pass Config
+[main_pass]
+num_workers = 4
+run_passes = [
+  'mgmt_pass.restore_folder',
+]

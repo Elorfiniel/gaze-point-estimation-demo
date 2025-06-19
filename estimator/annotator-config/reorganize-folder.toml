@@ -1,0 +1,10 @@
+# Configuration file for the PoG Annotator (Example)
+#   This config reorganizes the folder structure of the captured recordings
+#   for later passes in the pipeline, thus must be run before other passes
+
+# Main Pass Config
+[main_pass]
+num_workers = 4
+run_passes = [
+  'mgmt_pass.reorganize_folder',
+]

@@ -1,0 +1,24 @@
+# Configuration file for the PoG Annotator (Example)
+#   This config annotates all data samples from a single subject, with a pipeline
+#   that does not contain the face embedding pass and the face verification pass
+
+# Main Pass Config
+[main_pass]
+num_workers = 4
+run_passes = [
+  'io_pass.load_targets',
+  'data_pass.load_samples',
+  'face_pass.face_detect',
+  'out_pass.local_outlier',
+  'data_pass.save_samples',
+]
+
+# Data Pass Config
+[data_pass]
+refresh_samples = true
+
+# Outlier Pass Config
+[out_pass]
+verify_main_face = false
+lof_min_samples = 4
+lof_p_neighbors = 0.4

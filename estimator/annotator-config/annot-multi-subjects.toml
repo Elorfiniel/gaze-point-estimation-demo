@@ -1,10 +1,16 @@
-# Configuration file for the PoG Annotator
+# Configuration file for the PoG Annotator (Example)
+#   This config annotates all data samples from a single subject in a multi-subjects
+#   environment, where tourists standing behind the main subject will be mistakenly
+#   identified as the main subject, because they might have higher face confidence
+#   scores than the actual main subject
+#
+#   This config additionally runs two passes to detect and remove the tourists,
+#   adjust the pass-specific settings according to your needs/recordings
 
 # Main Pass Config
 [main_pass]
 num_workers = 4
 run_passes = [
-  'mgmt_pass.reorganize_folder',
   'io_pass.load_targets',
   'data_pass.load_samples',
   'face_pass.face_detect',
@@ -12,7 +18,6 @@ run_passes = [
   'face_pass.face_verify',
   'out_pass.local_outlier',
   'data_pass.save_samples',
-  'vis_pass.visualize',
 ]
 
 # Data Pass Config
@@ -30,9 +35,3 @@ verify_min_samples = 8
 verify_main_face = true
 lof_min_samples = 4
 lof_p_neighbors = 0.4
-
-# Visualize Pass Config
-[vis_pass]
-figsize = [13, 6]
-subplots_adjust = { left = 0.08, right = 0.90 }
-limits = { x = [-20.0, 20.0], y = [-20.0, 0.0] }
