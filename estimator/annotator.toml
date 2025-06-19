@@ -8,6 +8,9 @@ run_passes = [
   'io_pass.load_targets',
   'data_pass.load_samples',
   'face_pass.face_detect',
+  'face_pass.face_embed',
+  'face_pass.face_verify',
+  'out_pass.local_outlier',
   'data_pass.save_samples',
 ]
 
@@ -21,10 +24,11 @@ verify_metric = 'cosine'
 verify_eps = 0.12
 verify_min_samples = 8
 
-# Okay Pass Config
-[okay_pass]
-min_samples = 4
-p_neighbors = 0.4
+# Outlier Pass Config
+[out_pass]
+verify_main_face = true
+lof_min_samples = 4
+lof_p_neighbors = 0.4
 
 # Visualize Pass Config
 [vis_pass]

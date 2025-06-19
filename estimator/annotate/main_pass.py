@@ -3,6 +3,7 @@ from .data_pass import LoadSamplesPass, SaveSamplesPass
 from .face_pass import FaceDetectPass, FaceEmbedPass, FaceVerifyPass
 from .io_pass import LoadTargetsPass
 from .mgmt_pass import ReorganizeFolderPass
+from .out_pass import LocalOutlierPass
 
 from runtime.es_config import EsConfig, EsConfigFns
 from runtime.log import runtime_logger
@@ -20,6 +21,7 @@ IMPLEMENTED_PASSES = [
   FaceVerifyPass,
   LoadTargetsPass,
   ReorganizeFolderPass,
+  LocalOutlierPass,
   # Add other passes here as needed
 ]
 
