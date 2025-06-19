@@ -166,12 +166,12 @@ class FunctionAnimContext:
     target_fc = 'limegreen' if inlier else 'firebrick'
     self.patches_label['target'].set_facecolor(target_fc)
 
-    if pseudo is None and self.patches_label['pseudo'] is not None:
+    if not pseudo and self.patches_label['pseudo'] is not None:
       self.patches_label['pseudo'].remove()
       self.patches_label['pseudo'] = None
       self.patches_label['conn'].remove()
       self.patches_label['conn'] = None
-    elif pseudo is not None:
+    elif pseudo:
       xdata, ydata = (target[0], pseudo[0]), (target[1], pseudo[1])
       if self.patches_label['pseudo'] is None:
         p = ax.add_patch(patches.Circle(pseudo, **self.pseudo_style))
