@@ -23,7 +23,7 @@ resolution = [720, 1280]
 [server]
 websocket = { host = 'localhost', port = 4200 }
 http = { host = 'localhost', port = 5500 }
-record = { path = 'capture', inference = true }
+record = { path = '', inference = true }
 
 # Settings for gaze shooting game, used for server hello packet
 #   1. Check camera and record folder name
@@ -31,7 +31,7 @@ record = { path = 'capture', inference = true }
 #   3. Aiming mode (pog, key, key+pog)
 #   4. EnemyEmitter configs (name and extra arguments)
 [game]
-check = { camera = true, rename = true }
+check = { camera = true, rename = false }
 countdown = { mode = 'seconds', value = 90 }
 aiming = 'pog'
 emitter = { name = 'demo' }
