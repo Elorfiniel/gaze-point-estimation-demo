@@ -41,3 +41,32 @@ class ReorganizeFolderPass(BasePass):
 
     # Make temporary folder the new recording folder
     os.rename(temp_folder, self.recording_path)
+
+
+class RestoreFolderPass(BasePass):
+
+  PASS_NAME = 'mgmt_pass.restore_folder'
+
+  def __init__(self, recording_path: str, an_config: EsConfig):
+    self.recording_path = recording_path
+
+  def run(self, **kwargs):
+    record_path, recording = osp.split(self.recording_path)
+
+    # Create temporary folder for this recording
+    temp_folder = osp.join(record_path, f'temp-{recording}')
+
+    # Restore recording folder by moving and renaming
+    images_src_folder = osp.join(self.recording_path, 'images')
+    shutil.move(images_src_folder, temp_folder)
+
+    # Restore original label file by moving and renaming
+    labels_src_path = osp.join(self.recording_path, 'labels', 'targets.json')
+    labels_dst_path = osp.join(temp_folder, 'labels.json')
+    shutil.move(labels_src_path, labels_dst_path)
+
+    # Remove reorganized recording folder
+    shutil.rmtree(self.recording_path, ignore_errors=False)
+
+    # Make temporary folder the new recording folder
+    os.rename(temp_folder, self.recording_path)
