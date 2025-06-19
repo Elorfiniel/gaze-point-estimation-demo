@@ -66,7 +66,9 @@ record = { path = 'demo-capture', inference = true }
 
 The above config will create a `demo-capture` directory and save the captured PoGs and face images in the corresponding subfolders, named using either the timestamp or the custom name specified in the frontend. Each subfolder contains a list of images named using format `<frame_count> <image_label>.jpg`, where the `<image_label>` is a string that indicates the image label, given by the predictor and the groundtruth (namely, `<px>_<py>_<gx>_<gy>`).
 
-## Bundled App
+## Bundled Apps
+
+### Estimator
 
 The demo can be packaged into a standalone application using [PyInstaller](https://www.pyinstaller.org), following these steps:
 
@@ -84,6 +86,18 @@ cp estimator-config.toml ../bundle/dist/estimator-config.toml
 The above command will use the `bundle` directory during the bundling process. The bundled application locates in `bundle/dist`, and can be run directly from the command line, eg `./estimator.exe`. An extra config file `estimator-config.toml` overrides the default configuration in `estimator/estimator.toml`, which has been packaged into the application.
 
 For implementation details about the bundling process, take a look at the `bundle-estimator.spec` file. You may also find these resources useful: 1. [Using PyInstaller](https://pyinstaller.org/en/stable/usage.html), 2. [Using Spec Files](https://pyinstaller.org/en/stable/spec-files.html), 3. [Runtime Information](https://pyinstaller.org/en/stable/runtime-information.html).
+
+### Annotator
+
+Additionally, the PoG annotator that comes with the record mode can also be packaged into a standalone application, following similar steps listed below:
+
+```shell
+# bundle the application using the "bundle-annotator.spec"
+pyinstaller --distpath ../bundle/dist --workpath ../bundle/build bundle-annotator.spec
+
+# copy the configuration files to the output directory
+cp -r annotator-config ../bundle/dist/annotator-config
+```
 
 ## Note
 
