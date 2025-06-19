@@ -12,6 +12,7 @@ run_passes = [
   'face_pass.face_verify',
   'out_pass.local_outlier',
   'data_pass.save_samples',
+  'vis_pass.visualize',
 ]
 
 # Data Pass Config

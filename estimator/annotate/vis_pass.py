@@ -65,7 +65,7 @@ def function_plot_frame(frame_params, context, fig, ax_image, ax_label):
     - image_path: path to the image captured when gazing at the target
     - target: target location, aka. groundtruth
     - pseudo: pseudo-label location, used for outlier detection
-    - okay: whether the current frame is treated as a good sample
+    - inlier: whether the current frame is treated as an inlier
     - pseudos: list of pseudo-labels for current target
 
   For details on the plotting, please refer to the implementation of
@@ -76,12 +76,12 @@ def function_plot_frame(frame_params, context, fig, ax_image, ax_label):
   context.display_image(ax_image, plt.imread(frame_params['image_path']))
 
   # Display all the pseudo-labels for current target (gray dots)
-  okay, pseudos = frame_params['okay'], frame_params['pseudos']
-  context.display_context(ax_label, okay, pseudos)
+  inlier, pseudos = frame_params['inlier'], frame_params['pseudos']
+  context.display_context(ax_label, inlier, pseudos)
 
   # Display the target (red dot) and the pseudo-label (blue dot)
   target, pseudo = frame_params['target'], frame_params['pseudo']
-  context.display_label(ax_label, target, pseudo, okay)
+  context.display_label(ax_label, target, pseudo, inlier)
 
 def function_animation(frame_params, fig, ax_image, ax_label):
   plot_frame = functools.partial(
@@ -111,7 +111,7 @@ class FunctionAnimContext:
       linewidth=1.0, linestyle='--',
     )
 
-    self.patches_ctx = dict(okay=None, pseudos=[], mcircle=[])
+    self.patches_ctx = dict(inlier=None, pseudos=[], mcircle=[])
     self.pseudos_style = dict(
       radius=0.18, facecolor='gray',
       edgecolor='none', alpha=0.4,
@@ -128,11 +128,11 @@ class FunctionAnimContext:
     else:
       self.axes_image.set_data(image)
 
-  def display_context(self, ax, okay, pseudos):
+  def display_context(self, ax, inlier, pseudos):
     spines_style = dict(
       visible=True, alpha=0.8,
-      color='limegreen' if okay else 'firebrick',
-      linewidth=1.0 if okay else 1.4,
+      color='limegreen' if inlier else 'firebrick',
+      linewidth=1.0 if inlier else 1.4,
     )
     set_axes_splines_style(ax, spines_style)
 
@@ -157,13 +157,13 @@ class FunctionAnimContext:
       mcircle = ax.plot(mean_xs, mean_ys, **self.mcircle_style)
       self.patches_ctx['mcircle'] = mcircle
 
-  def display_label(self, ax, target, pseudo, okay):
+  def display_label(self, ax, target, pseudo, inlier):
     if self.patches_label['target'] is None:
       p = ax.add_patch(patches.Circle(target, **self.target_style))
       self.patches_label['target'] = p
     else:
       self.patches_label['target'].set_center(target)
-    target_fc = 'limegreen' if okay else 'firebrick'
+    target_fc = 'limegreen' if inlier else 'firebrick'
     self.patches_label['target'].set_facecolor(target_fc)
 
     if pseudo is None and self.patches_label['pseudo'] is not None:
@@ -189,17 +189,15 @@ class VisualizePass(BasePass):
 
   def __init__(self, recording_path: str, an_config: EsConfig):
     self.recording_path = recording_path
-    self.an_config = an_config
+    self.pass_config = EsConfigFns.named_dict(an_config, 'vis_pass')
 
   def before_pass(self, context: dict, **kwargs):
-    pass_config = EsConfigFns.named_dict(self.an_config, 'vis_pass')
-
-    fig, ax_image, ax_label = create_preview_plots(pass_config)
+    fig, ax_image, ax_label = create_preview_plots(self.pass_config)
     self.plots = dict(fig=fig, ax_image=ax_image, ax_label=ax_label)
     self.frame_params = []  # Params of each frame
 
   def after_pass(self, context: dict, **kwargs):
-    anim_path = osp.join(self.recording_path, 'labels.mp4')
+    anim_path = osp.join(self.recording_path, 'labels', 'samples.mp4')
 
     function_animation(
       frame_params=self.frame_params, **self.plots,
@@ -208,19 +206,31 @@ class VisualizePass(BasePass):
     close_preview_plots(self.plots['fig'])
 
   def collect_data(self, context: dict, **kwargs):
-    return context['labels']
+    return context['targets']
 
   def process_data(self, data, context: dict, **kwargs):
     image_names = [f'{fid:05d}.jpg' for fid in data['fids']]
-    pseudos = [p for p in data['pogs'] if p is not None]
 
-    for image_name, pseudo, okay in zip(image_names, data['pogs'], data['okay']):
+    images_folder = osp.join(self.recording_path, 'images')
+
+    pseudos = list()  # Pseudo-labels for current target
+    for image_name in image_names:
+      sample_dict = context['samples'][image_name]
+      if not sample_dict['face_mesh']: continue
+      pseudos.append(sample_dict['pseudo_xy'])
+    pseudos = np.array(pseudos, dtype=np.float32)
+
+    for image_name in image_names:
+      sample_dict = context['samples'][image_name]
+
       self.frame_params.append(dict(
-        image_path=osp.join(self.recording_path, image_name),
-        target=[data['lx'], data['ly']],
-        pseudo=pseudo, okay=okay, pseudos=pseudos,
+        image_path=osp.join(images_folder, image_name),
+        target=sample_dict['target_xy'],
+        pseudo=sample_dict['pseudo_xy'],
+        inlier=sample_dict['inlier'],
+        pseudos=pseudos,
       ))
 
   def run(self, context: dict, **kwargs):
-    require_context(self, context, ['labels'])
+    require_context(self, context, ['targets', 'samples'])
     super().run(context=context, **kwargs)
