@@ -1,5 +1,5 @@
 from .base_pass import BasePass
-from .miscellaneous import require_context, format_number
+from .miscellaneous import require_context, dump_json, format_number
 
 from runtime.es_config import EsConfig, EsConfigFns
 from runtime.facealign import FaceAlignment
@@ -306,48 +306,49 @@ class FaceEmbedPass(BasePass):
     super().run(context=context, **kwargs)
 
 
-class FacePurifyPass(BasePass):
+class FaceVerifyPass(BasePass):
 
-  PASS_NAME = 'face_pass.face_purify'
+  PASS_NAME = 'face_pass.face_verify'
 
   def __init__(self, recording_path: str, an_config: EsConfig):
     self.recording_path = recording_path
-    self.an_config = an_config
+    self.pass_config = EsConfigFns.named_dict(an_config, 'face_pass')
 
   def before_pass(self, context: dict, **kwargs):
-    pass_config = EsConfigFns.named_dict(self.an_config, 'face_pass')
+    embeds_path = osp.join(self.recording_path, 'embeds', 'embeds.npy')
+    embeds = np.load(embeds_path)
 
-    name_to_embed = context['face_embedding']
-    embeds = np.stack([name_to_embed[n] for n in name_to_embed], axis=0)
-    cluster = skc.DBSCAN(**pass_config['purify_with_dbscan']).fit(embeds)
+    embeddings = np.stack(embeds['embed'], axis=0)
+    cluster = skc.DBSCAN(
+      metric=self.pass_config['verify_metric'],
+      eps=self.pass_config['verify_eps'],
+      min_samples=self.pass_config['verify_min_samples'],
+    ).fit(embeddings)
 
-    face_labels = cluster.labels_
-    unique_labels, counts = np.unique(
-      face_labels[face_labels != -1],
+    unique_ids, counts = np.unique(
+      cluster.labels_[cluster.labels_ != -1],
       return_counts=True,
     )
 
-    self.face_label = unique_labels[np.argmax(counts)]
-    self.name_to_label = {n:l for n, l in zip(name_to_embed, face_labels)}
+    self.face_id = int(unique_ids[np.argmax(counts)])
+    self.n2id = {n:int(i) for n, i in zip(embeds['image_name'], cluster.labels_)}
+
+  def after_pass(self, context: dict, **kwargs):
+    verify_path = osp.join(self.recording_path, 'embeds', 'verify.json')
+    dump_json(verify_path, dict(main_face=self.face_id, all_faces=self.n2id))
 
   def collect_data(self, context: dict, **kwargs):
-    return context['labels']
+    return context['targets']
 
   def process_data(self, data, context: dict, **kwargs):
     image_names = [f'{fid:05d}.jpg' for fid in data['fids']]
 
-    results = []  # Purify results for each image
     for image_name in image_names:
-      if image_name not in self.name_to_label:
-        is_face_pure = False
-      else:
-        label = self.name_to_label[image_name]
-        is_face_pure = label == self.face_label
-
-      results.append(is_face_pure)
-
-    data['face'] = results
+      image_face_id = self.n2id.get(image_name, -2)
+      context['samples'][image_name].update(
+        main_face=image_face_id == self.face_id,
+      )
 
   def run(self, context: dict, **kwargs):
-    require_context(self, context, ['labels', 'face_embedding'])
+    require_context(self, context, ['targets', 'samples'])
     super().run(context=context, **kwargs)

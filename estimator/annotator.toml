@@ -17,7 +17,9 @@ refresh_samples = true
 
 # Face Pass Config
 [face_pass]
-purify_with_dbscan = { metric = 'cosine', eps = 0.12, min_samples = 8 }
+verify_metric = 'cosine'
+verify_eps = 0.12
+verify_min_samples = 8
 
 # Okay Pass Config
 [okay_pass]
