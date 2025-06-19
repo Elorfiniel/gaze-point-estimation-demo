@@ -62,9 +62,9 @@ def main_procedure(cmdargs: argparse.Namespace):
 
 
 if __name__ == '__main__':
-  parser = argparse.ArgumentParser(description='Bootstrap the server and the client for bundled app.')
+  parser = argparse.ArgumentParser(description='Bootstrap the PoG estimator for bundled app.')
 
-  parser.add_argument('--config', type=str, default='config.toml',
+  parser.add_argument('--config', type=str, default='estimator-config.toml',
                       help='Device-specific configuration for this PoG estimator.')
 
   main_procedure(parser.parse_args())

@@ -37,7 +37,7 @@ except ImportError:
     pass
 
 a = Analysis(
-    ['bootstrap.py'],
+    ['bundle-estimator.py'],
     pathex=[],
     binaries=[],
     datas=datas,
@@ -57,7 +57,7 @@ if options.debug:
         a.scripts,
         [],
         exclude_binaries=True,
-        name='bootstrap',
+        name='estimator',
         debug=False,
         bootloader_ignore_signals=False,
         strip=False,
@@ -76,7 +76,7 @@ if options.debug:
         strip=False,
         upx=True,
         upx_exclude=[],
-        name='bootstrap',
+        name='estimator',
     )
 else:
     exe = EXE(
@@ -85,7 +85,7 @@ else:
         a.binaries,
         a.datas,
         [],
-        name='bootstrap',
+        name='estimator',
         debug=False,
         bootloader_ignore_signals=False,
         strip=False,

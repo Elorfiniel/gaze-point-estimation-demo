@@ -1,6 +1,6 @@
 # PoG Estimation Models
 
-Please download into this folder the PoG estimation models listed below. Rename the model to `model.onnx`, or change the model filename in `estimator/estimator.toml` to the desired one. If you are using the bundled application, modifying `config.toml` will also work.
+Please download into this folder the PoG estimation models listed below. Rename the model to `model.onnx`, or change the model filename in `estimator/estimator.toml` to the desired one. If you are using the bundled application, modifying `estimator-config.toml` will also work.
 
 ### Preview Model (Coming Soon)
 

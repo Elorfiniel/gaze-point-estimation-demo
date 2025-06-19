@@ -74,16 +74,16 @@ The demo can be packaged into a standalone application using [PyInstaller](https
 # make sure you have the required dependencies installed
 cd estimator && pip install -r requirements.txt
 
-# bundle the application using the "bootstrap.spec"
-pyinstaller --distpath ../bundle/dist --workpath ../bundle/build bootstrap.spec
+# bundle the application using the "bundle-estimator.spec"
+pyinstaller --distpath ../bundle/dist --workpath ../bundle/build bundle-estimator.spec
 
 # copy the configuration file to the output directory
-cp config.toml ../bundle/dist/config.toml
+cp estimator-config.toml ../bundle/dist/estimator-config.toml
 ```
 
-The above command will use the `bundle` directory during the bundling process. The bundled application locates in `bundle/dist`, and can be run directly from the command line, eg `./bootstrap.exe`. An extra config file `config.toml` overrides the default configuration in `estimator/estimator.toml`, which has been packaged into the application.
+The above command will use the `bundle` directory during the bundling process. The bundled application locates in `bundle/dist`, and can be run directly from the command line, eg `./estimator.exe`. An extra config file `estimator-config.toml` overrides the default configuration in `estimator/estimator.toml`, which has been packaged into the application.
 
-For implementation details about the bundling process, take a look at the `bootstrap.spec` file. You may also find these resources useful: 1. [Using PyInstaller](https://pyinstaller.org/en/stable/usage.html), 2. [Using Spec Files](https://pyinstaller.org/en/stable/spec-files.html), 3. [Runtime Information](https://pyinstaller.org/en/stable/runtime-information.html).
+For implementation details about the bundling process, take a look at the `bundle-estimator.spec` file. You may also find these resources useful: 1. [Using PyInstaller](https://pyinstaller.org/en/stable/usage.html), 2. [Using Spec Files](https://pyinstaller.org/en/stable/spec-files.html), 3. [Runtime Information](https://pyinstaller.org/en/stable/runtime-information.html).
 
 ## Note
 
